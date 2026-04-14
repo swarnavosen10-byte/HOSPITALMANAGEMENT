@@ -18,6 +18,12 @@ This system provides a web-based healthcare dashboard where users can check hosp
 - Red pins for hospitals without vacant beds
 - Moving ambulance visualization
 
+# 🚑 Ambulance Tracking System
+
+## 📍 Map Output
+
+![Ambulance Map](../assets/ambulance_map.png)
+
 ## Technologies Used
 - Frontend: React
 - Backend: FastAPI
