@@ -1,73 +1,37 @@
-# React + TypeScript + Vite
+# MediSync - Healthcare Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Project Overview
+MediSync is a centralized healthcare platform that connects hospitals and provides real-time information about beds, doctors, ambulances, and emergency facilities.
 
-Currently, two official plugins are available:
+## Problem Statement
+During emergencies, patients and families face difficulty finding hospitals with available beds, doctors, and ambulance support because there is no centralized platform showing real-time hospital information.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Solution
+This system provides a web-based healthcare dashboard where users can check hospital resource availability, book services, and visually identify hospitals using an API map.
 
-## React Compiler
+## Main Features
+- Real-time hospital bed availability
+- Doctor information and appointment support
+- Ambulance-related emergency support
+- API map showing hospital bed availability
+- Green pins for hospitals with vacant beds
+- Red pins for hospitals without vacant beds
+- Moving ambulance visualization
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+# 🚑 Ambulance Tracking System
 
-## Expanding the ESLint configuration
+## 📍 Map Output
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+![Ambulance Map](../assets/ambulance_map.png)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Technologies Used
+- Frontend: React
+- Backend: FastAPI
+- Map Integration: API-based hospital map
+- Version Control: Git and GitHub
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Team Contribution
+- Swarnavo Sen – Frontend UI Development
+- Soham Banerjee – Backend API Development
+- Suman Bhadra – Data handling and supporting logic
+- Soubhagyya Bhattacharya – Documentation, API map integration, bed availability visualization, and ambulance movement map feature
