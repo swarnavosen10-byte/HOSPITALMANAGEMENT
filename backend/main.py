@@ -15,12 +15,25 @@ def home():
     return {"message": "Backend is running successfully"}
 
 # Patients API
+patients = [
+    {"id": 1, "name": "Soham", "age": 20},
+    {"id": 2, "name": "Suman", "age": 21}
+]
+
 @app.get("/patients")
 def get_patients():
-    return [
-        {"id": 1, "name": "Soham", "age": 20},
-        {"id": 2, "name": "Suman", "age": 21}
-    ]
+    return patients
+
+@app.post("/patients")
+def add_patient(patient: dict):
+    patients.append(patient)
+    return {"message": "Patient added"}
+
+@app.delete("/patients/{patient_id}")
+def delete_patient(patient_id: int):
+    global patients
+    patients = [p for p in patients if p["id"] != patient_id]
+    return {"message": "Patient deleted"}
 
 # Doctors API
 @app.get("/doctors")
