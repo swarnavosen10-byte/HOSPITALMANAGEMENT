@@ -102,7 +102,7 @@ def update_beds():
 @app.get("/")
 def home():
     return {"message": "Ambulance Backend Running 🚑"}
-=======
+
 @app.get("/")
 def home():
     return {"message": "Backend is running successfully"}
