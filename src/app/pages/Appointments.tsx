@@ -1,33 +1,121 @@
-const appointments = [
-  { patient: "Rahul Das", doctor: "Dr. Mita Roy", time: "10:00 AM" },
-  { patient: "Tumpa Sen", doctor: "Dr. Rahul Das", time: "11:00 AM" },
-  { patient: "Suman Ghosh", doctor: "Dr. Tumpa Sen", time: "12:00 PM" },
-  { patient: "Mita Roy", doctor: "Dr. Abhijit Pal", time: "1:00 PM" },
-  { patient: "Abhijit Pal", doctor: "Dr. Suman Ghosh", time: "2:00 PM" },
-];
+import { useEffect, useState } from "react";
+
+type Appointment = {
+  id: number;
+  patient: string;
+  doctor: string;
+};
 
 export default function Appointments() {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [patient, setPatient] = useState("");
+  const [doctor, setDoctor] = useState("");
+
+  const fetchAppointments = () => {
+    fetch("http://127.0.0.1:8000/appointments")
+      .then((res) => res.json())
+      .then((data) => setAppointments(data))
+      .catch((err) => console.log(err));
+  };
+
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
+
+  const addAppointment = async () => {
+    if (!patient || !doctor) {
+      alert("Enter patient and doctor");
+      return;
+    }
+
+    const newAppointment = {
+      id: Date.now(),
+      patient,
+      doctor,
+    };
+
+    try {
+      const res = await fetch("http://127.0.0.1:8000/appointments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newAppointment),
+      });
+
+      await res.json();
+      setPatient("");
+      setDoctor("");
+      fetchAppointments();
+    } catch (err) {
+      console.log("Error:", err);
+    }
+  };
+
+  const deleteAppointment = async (id: number) => {
+    try {
+      await fetch(`http://127.0.0.1:8000/appointments/${id}`, {
+        method: "DELETE",
+      });
+
+      fetchAppointments();
+    } catch (err) {
+      console.log("Delete error:", err);
+    }
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-semibold mb-4">Appointments</h1>
 
+      {/* Add Form */}
+      <div className="bg-white rounded-xl shadow p-4 mb-6 flex gap-4">
+        <input
+          type="text"
+          placeholder="Enter patient"
+          value={patient}
+          onChange={(e) => setPatient(e.target.value)}
+          className="border rounded-lg px-4 py-2 w-full"
+        />
+
+        <input
+          type="text"
+          placeholder="Enter doctor"
+          value={doctor}
+          onChange={(e) => setDoctor(e.target.value)}
+          className="border rounded-lg px-4 py-2 w-full"
+        />
+
+        <button
+          onClick={addAppointment}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+        >
+          Add
+        </button>
+      </div>
+
+      {/* Table */}
       <div className="bg-white rounded-xl shadow overflow-hidden">
-        {/* Header */}
         <div className="grid grid-cols-3 px-6 py-3 text-sm font-semibold text-gray-500 border-b">
           <span>Patient</span>
           <span>Doctor</span>
-          <span>Time</span>
+          <span>Action</span>
         </div>
 
-        {/* Rows */}
-        {appointments.map((a, index) => (
+        {appointments.map((a) => (
           <div
-            key={index}
-            className="grid grid-cols-3 px-6 py-4 text-sm border-b border-gray-200/70 hover:bg-gray-50 transition cursor-pointer"
+            key={a.id}
+            className="grid grid-cols-3 px-6 py-4 text-sm border-b"
           >
-            <span className="font-medium text-gray-800">{a.patient}</span>
-            <span className="text-gray-600">{a.doctor}</span>
-            <span className="text-gray-600">{a.time}</span>
+            <span>{a.patient}</span>
+            <span>{a.doctor}</span>
+
+            <button
+              onClick={() => deleteAppointment(a.id)}
+              className="bg-red-500 text-white px-2 py-1 rounded"
+            >
+              Delete
+            </button>
           </div>
         ))}
       </div>
