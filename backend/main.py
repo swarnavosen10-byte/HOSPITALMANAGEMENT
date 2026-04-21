@@ -1,3 +1,7 @@
+patients = [
+    {"id": 1, "name": "Soham", "age": 20},
+    {"id": 2, "name": "Suman", "age": 21}
+]
 from fastapi import FastAPI
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -128,6 +132,13 @@ def delete_patient(patient_id: int):
     patients = [p for p in patients if p["id"] != patient_id]
     return {"message": "Patient deleted"}
 
+@app.put("/patients/{patient_id}")
+def update_patient(patient_id: int, updated: dict):
+    for p in patients:
+        if p["id"] == patient_id:
+            p.update(updated)
+            return {"message": "Updated successfully"}
+    return {"message": "Patient not found"}
 # Doctors API
 doctors = [
     {"id": 1, "name": "Dr. Sen", "specialization": "Cardiology"},
