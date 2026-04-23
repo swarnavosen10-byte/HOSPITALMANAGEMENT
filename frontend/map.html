@@ -111,6 +111,7 @@
     <button onclick="applyFilter('nobeds')">No Beds</button>
     <button onclick="searchHospital()">Search</button>
     <button onclick="findNearestHospital()">Nearest Hospital</button>
+    <button onclick="recommendBestHospitals()">Best Hospitals</button>
   </div>
 
   <div class="legend">
@@ -143,17 +144,18 @@
         center: defaultLocation,
       });
 
-      fetch("http://127.0.0.1:8000/hospitals")
-        .then(response => response.json())
-        .then(hospitals => {
-          console.log("Hospitals data:", hospitals);
-          allHospitals = hospitals;
-          showHospitals(allHospitals);
-        })
-        .catch(error => {
-          console.error("Error loading hospitals:", error);
-          alert("Hospital data is not loading from backend");
-        });
+     fetch("http://127.0.0.1:8000/hospitals")
+  .then(response => response.json())
+  .then(hospitals => {
+    console.log("Hospitals data:", hospitals);
+    alert("Hospitals loaded: " + hospitals.length);
+    allHospitals = hospitals;
+    showHospitals(allHospitals);
+  })
+  .catch(error => {
+    console.error("Error loading hospitals:", error);
+    alert("Hospital data is not loading from backend");
+  });
 
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -373,6 +375,164 @@ function getDistance(lat1, lng1, lat2, lng2) {
 
     alert("Nearest hospital is: " + nearest.name);
   }
+}
+function recommendBestHospitals() {
+  if (!userLocation) {
+    alert("User location not available");
+    return;
+  }
+
+  let rankedHospitals = allHospitals.map(hospital => {
+    const distance = getDistance(
+      userLocation.lat,
+      userLocation.lng,
+      hospital.lat,
+      hospital.lng
+    );
+
+    const score =
+      (hospital.beds * 5) +
+      ((hospital.doctors ?? 0) * 3) +
+      ((hospital.ambulances ?? 0) * 2) -
+      (distance * 2);
+
+    return {
+      ...hospital,
+      distanceFromUser: distance,
+      score: score
+    };
+  });
+
+  rankedHospitals.sort((a, b) => b.score - a.score);
+
+  const top3 = rankedHospitals.slice(0, 3);
+
+  showHospitals(top3);
+
+  if (top3.length > 0) {
+    map.setCenter({
+      lat: top3[0].lat,
+      lng: top3[0].lng
+    });
+    map.setZoom(13);
+  }
+
+  let detailsHTML = `
+  <div class="hospital-card">
+    <h4>Top 3 Recommended Hospitals</h4>
+  </div>
+`;
+
+top3.forEach((hospital, index) => {
+  detailsHTML += `
+    <div class="hospital-card">
+      <p><strong>${index + 1}. ${hospital.name}</strong></p>
+      <p>Beds: ${hospital.beds}</p>
+      <p>Doctors: ${hospital.doctors ?? "Not added yet"}</p>
+      <p>Ambulances: ${hospital.ambulances ?? "Not added yet"}</p>
+      <p>Distance: ${hospital.distanceFromUser.toFixed(2)} km</p>
+      <p>Score: ${hospital.score.toFixed(2)}</p>
+    </div>
+  `;
+});
+
+document.getElementById("details").innerHTML = detailsHTML;
+ } 
+function recommendBestHospitals() {
+  if (!userLocation) {
+    alert("Please wait, getting your location...");
+    return;
+  }
+
+  let rankedHospitals = allHospitals.map(hospital => {
+    const distance = getDistance(
+      userLocation.lat,
+      userLocation.lng,
+      hospital.lat,
+      hospital.lng
+    );
+
+    const score =
+      (hospital.beds * 5) +
+      ((hospital.doctors ?? 0) * 3) +
+      ((hospital.ambulances ?? 0) * 2) -
+      (distance * 2);
+
+    return {
+      ...hospital,
+      distanceFromUser: distance,
+      score: score
+    };
+  });
+
+  rankedHospitals.sort((a, b) => b.score - a.score);
+
+  const top3 = rankedHospitals.slice(0, 3);
+
+  alert("Top hospitals found: " + top3.length);
+
+  showHospitals(top3);
+
+  if (top3.length > 0) {
+    map.setCenter({
+      lat: top3[0].lat,
+      lng: top3[0].lng
+    });
+    map.setZoom(13);
+  }
+
+  if (top3.length === 0) {
+    document.getElementById("details").innerHTML = `
+      <div class="hospital-card">
+        <h4>Top 3 Recommended Hospitals</h4>
+        <p>No hospitals found.</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = `<div class="hospital-card"><h4>Top 3 Recommended Hospitals</h4></div>`;
+
+  if (top3[0]) {
+    html += `
+      <div class="hospital-card">
+        <p><strong>1. ${top3[0].name}</strong></p>
+        <p>Beds: ${top3[0].beds}</p>
+        <p>Doctors: ${top3[0].doctors ?? "Not added yet"}</p>
+        <p>Ambulances: ${top3[0].ambulances ?? "Not added yet"}</p>
+        <p>Distance: ${top3[0].distanceFromUser.toFixed(2)} km</p>
+        <p>Score: ${top3[0].score.toFixed(2)}</p>
+      </div>
+    `;
+  }
+
+  if (top3[1]) {
+    html += `
+      <div class="hospital-card">
+        <p><strong>2. ${top3[1].name}</strong></p>
+        <p>Beds: ${top3[1].beds}</p>
+        <p>Doctors: ${top3[1].doctors ?? "Not added yet"}</p>
+        <p>Ambulances: ${top3[1].ambulances ?? "Not added yet"}</p>
+        <p>Distance: ${top3[1].distanceFromUser.toFixed(2)} km</p>
+        <p>Score: ${top3[1].score.toFixed(2)}</p>
+      </div>
+    `;
+  }
+
+  if (top3[2]) {
+    html += `
+      <div class="hospital-card">
+        <p><strong>3. ${top3[2].name}</strong></p>
+        <p>Beds: ${top3[2].beds}</p>
+        <p>Doctors: ${top3[2].doctors ?? "Not added yet"}</p>
+        <p>Ambulances: ${top3[2].ambulances ?? "Not added yet"}</p>
+        <p>Distance: ${top3[2].distanceFromUser.toFixed(2)} km</p>
+        <p>Score: ${top3[2].score.toFixed(2)}</p>
+      </div>
+    `;
+  }
+
+  document.getElementById("details").innerHTML = html;
 }
   </script>
 

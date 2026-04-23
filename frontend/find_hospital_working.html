@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Find Hospitals Working UI</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: #f4f7fb;
+      padding: 30px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #222;
+    }
+
+    .phone-wrapper {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+
+    .phone {
+      width: 280px;
+      height: 600px;
+      background: white;
+      border: 10px solid #111;
+      border-radius: 35px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      position: relative;
+    }
+
+    .phone-header {
+      background: #4a4abf;
+      color: white;
+      text-align: center;
+      padding: 14px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .screen-content {
+      padding: 20px 16px;
+      height: calc(100% - 50px);
+      overflow-y: auto;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      color: #222;
+    }
+
+    .input-box, .select-box {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-bottom: 2px solid #bbb;
+      margin-bottom: 18px;
+      outline: none;
+      font-size: 14px;
+      background: transparent;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: #4a4abf;
+      color: white;
+      border: none;
+      border-radius: 18px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .btn:hover {
+      background: #37379e;
+    }
+
+    .hospital-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .hospital-card {
+      background: #f7f7f7;
+      border-radius: 10px;
+      padding: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+      border: 1px solid #ddd;
+    }
+
+    .hospital-card:hover {
+      transform: scale(1.03);
+      background: #eef2ff;
+    }
+
+    .hospital-card img {
+      width: 100%;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-bottom: 6px;
+    }
+
+    .hospital-card h4 {
+      font-size: 13px;
+      margin-bottom: 4px;
+      color: #222;
+    }
+
+    .hospital-card p {
+      font-size: 12px;
+      color: #555;
+    }
+
+    .detail-image {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-bottom: 15px;
+    }
+
+    .detail-box h2 {
+      font-size: 20px;
+      margin-bottom: 8px;
+      color: #222;
+    }
+
+    .detail-box p {
+      font-size: 13px;
+      color: #444;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .feature-list {
+      margin-top: 10px;
+      padding-left: 18px;
+    }
+
+    .feature-list li {
+      font-size: 13px;
+      margin-bottom: 6px;
+      color: #333;
+    }
+    
+.star-container {
+  display: inline-block;
+  font-size: 18px;
+  position: relative;
+  color: #ccc;
+}
+
+.star-container::before {
+  content: "★★★★★";
+  color: #ccc;
+}
+
+.star-container::after {
+  content: "★★★★★";
+  color: #f4b400;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--rating-percent);
+  overflow: hidden;
+}
+  </style>
+</head>
+<body>
+
+  <h1>Find Hospitals</h1>
+
+  <div class="phone-wrapper">
+
+    <!-- SCREEN 1 -->
+    <div class="phone">
+      <div class="phone-header">FIND HOSPITAL</div>
+      <div class="screen-content">
+        <div class="section-title">Find your nearby Hospital</div>
+
+        <input id="searchName" class="input-box" type="text" placeholder="Hospital Name" />
+        <input id="searchLocation" class="input-box" type="text" placeholder="Location / District" />
+        <input id="searchDate" class="input-box" type="date" />
+<input id="searchTime" class="input-box" type="time" />
+        <button class="btn" onclick="findHospitals()">FIND HOSPITAL</button>
+      </div>
+    </div>
+
+    <!-- SCREEN 2 -->
+    <div class="phone">
+      <div class="phone-header">FIND HOSPITAL</div>
+      <div class="screen-content">
+        <p style="font-size:13px; margin-bottom:12px; color:#333;">
+          Hospital Found
+        </p>
+
+        <div id="hospitalList" class="hospital-grid"></div>
+      </div>
+    </div>
+
+    <!-- SCREEN 3 -->
+    <div class="phone">
+      <div class="phone-header">FIND HOSPITAL</div>
+      <div class="screen-content">
+        <div class="detail-box">
+          <img id="detailImage" class="detail-image" src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=600" alt="Hospital">
+          <h2 id="detailName">Select a Hospital</h2>
+          <p><strong id="detailDistance">Distance will appear here</strong></p>
+          <p id="detailDescription">
+            Click any hospital from the middle screen to view details.
+          </p>
+
+          <p><strong>Features:</strong></p>
+         <ul class="feature-list">
+  <li id="detailBeds">Beds: -</li>
+  <li id="detailDoctors">Doctors: -</li>
+  <li id="detailAmbulances">Ambulances: -</li>
+  <li id="detailLocation">Location: -</li>
+  <li id="detailRating">Rating: -</li>
+</ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+  let allHospitals = [];
+
+async function loadHospitals() {
+  try {
+    alert("Trying to fetch hospitals from backend...");
+
+    const response = await fetch("http://127.0.0.1:8000/hospitals");
+
+    alert("Response received from backend");
+
+    const data = await response.json();
+
+    alert("Hospitals received: " + data.length);
+
+    console.log("Hospital data from backend:", data);
+
+    allHospitals = data;
+    renderHospitalCards(allHospitals);
+  } catch (error) {
+    console.error("Error loading hospitals:", error);
+    alert("Hospital data not loading from backend");
+  }
+}
+    function getStarHTML(rating) {
+  const percent = ((rating ?? 0) / 5) * 100;
+
+  return `<span class="star-container" style="--rating-percent: ${percent}%"></span>`;
+}
+function renderHospitalCards(hospitals) {
+  const hospitalList = document.getElementById("hospitalList");
+  hospitalList.innerHTML = "";
+
+  if (!hospitals || hospitals.length === 0) {
+    hospitalList.innerHTML = "<p>No hospitals found</p>";
+    return;
+  }
+
+  hospitals.forEach(hospital => {
+    const card = document.createElement("div");
+    card.className = "hospital-card";
+
+    card.innerHTML = `
+      <img src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=600" alt="Hospital">
+      <h4>${hospital.name}</h4>
+    <div>
+  ${getStarHTML(hospital.rating ?? 0)} (${hospital.rating ?? "N/A"})
+</div>
+      <p>${hospital.beds} Beds Available</p>
+    `;
+
+    card.onclick = function () {
+      showHospitalDetails(hospital);
+    };
+
+    hospitalList.appendChild(card);
+  });
+}
+    
+        
+
+    function showHospitalDetails(hospital) {
+  document.getElementById("detailName").innerText =
+    hospital.name ?? "Not Available";
+
+  document.getElementById("detailDistance").innerText =
+    "Open: " + (hospital.open_time ?? "--") + " | Close: " + (hospital.close_time ?? "--");
+
+  document.getElementById("detailDescription").innerText =
+    hospital.name + " hospital details loaded from backend.";
+
+  document.getElementById("detailBeds").innerText =
+    "Beds: " + (hospital.beds ?? "Not Available");
+
+  document.getElementById("detailDoctors").innerText =
+    "Doctors: " + (hospital.doctors ?? "Not Available");
+
+  document.getElementById("detailAmbulances").innerText =
+    "Ambulances: " + (hospital.ambulances ?? "Not Available");
+
+  document.getElementById("detailLocation").innerText =
+    "Location: " + (hospital.district ?? "Not Available");
+document.getElementById("detailRating").innerHTML =
+  'Rating: ' + getStarHTML(hospital.rating ?? 0) + ' (' + (hospital.rating ?? "N/A") + ')';
+}
+
+   function findHospitals() {
+  const nameValue = document.getElementById("searchName").value.trim().toLowerCase();
+  const locationValue = document.getElementById("searchLocation").value.trim().toLowerCase();
+  const dateValue = document.getElementById("searchDate").value;
+  const timeValue = document.getElementById("searchTime").value;
+
+  if (!dateValue) {
+    alert("Please choose a date");
+    return;
+  }
+
+  if (!timeValue) {
+    alert("Please choose a time");
+    return;
+  }
+
+  const filtered = allHospitals.filter(hospital => {
+    const matchName = !nameValue || hospital.name.toLowerCase().includes(nameValue);
+
+   const matchLocation =
+  !locationValue ||
+  (hospital.district && hospital.district.toLowerCase().includes(locationValue)) ||
+  (hospital.name && hospital.name.toLowerCase().includes(locationValue));
+
+    return matchName && matchLocation;
+  });
+
+
+  renderHospitalCards(filtered);
+
+ if (filtered.length > 0) {
+  showHospitalDetails(filtered[0]);
+ }else {
+  document.getElementById("detailName").innerText = "No Hospital Found";
+  document.getElementById("detailDistance").innerText =
+    "Date: " + dateValue + " | Time: " + timeValue;
+  document.getElementById("detailDescription").innerText =
+    "No hospital matched your search filters.";
+
+  document.getElementById("detailBeds").innerText = "Beds: -";
+  document.getElementById("detailDoctors").innerText = "Doctors: -";
+  document.getElementById("detailAmbulances").innerText = "Ambulances: -";
+  document.getElementById("detailLocation").innerText =
+    "Location filter: " + (locationValue || "Any");
+   
+}
+}
+    loadHospitals();
+  </script>
+
+</body>
+</html>
