@@ -1,15 +1,12 @@
-from fastapi import FastAPI
-
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
-import random
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import List
+
+from database import SessionLocal, Hospital
 
 app = FastAPI()
-
-# ---------------- CORS SETUP ----------------
-
-
-app = FastAPI()
-from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,175 +16,729 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ---------------- DATABASE SESSION ----------------
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-# ---------------- GLOBAL DATA (CREATED ONCE) ----------------
+# ---------------- WEBSOCKET CONNECTION MANAGER ----------------
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
 
-hospitals = []
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
 
-base_lat = 22.5726
-base_lng = 88.3639
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
-# ---------------- FIXED HOSPITAL DATA ----------------
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
 
-hospitals = [
-    {"id": 1, "name": "Apollo Hospital", "lat": 22.5148, "lng": 88.3924, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 2, "name": "AMRI Hospital Dhakuria", "lat": 22.5074, "lng": 88.3728, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 3, "name": "AMRI Hospital Salt Lake", "lat": 22.5991, "lng": 88.4128, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 4, "name": "Medica Superspecialty Hospital", "lat": 22.4949, "lng": 88.4011, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 5, "name": "Fortis Hospital Anandapur", "lat": 22.5016, "lng": 88.4009, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 6, "name": "Peerless Hospital", "lat": 22.5036, "lng": 88.3923, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 7, "name": "Ruby General Hospital", "lat": 22.5133, "lng": 88.4006, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 8, "name": "Desun Hospital", "lat": 22.5079, "lng": 88.4027, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 9, "name": "ILS Hospital Salt Lake", "lat": 22.5867, "lng": 88.4172, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 10, "name": "Belle Vue Clinic", "lat": 22.5318, "lng": 88.3639, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 11, "name": "Woodlands Hospital", "lat": 22.5350, "lng": 88.3542, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 12, "name": "CMRI Hospital", "lat": 22.5185, "lng": 88.3512, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 13, "name": "SSKM Hospital", "lat": 22.5410, "lng": 88.3420, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 14, "name": "RG Kar Medical College", "lat": 22.6022, "lng": 88.3785, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 15, "name": "NRS Medical College", "lat": 22.5732, "lng": 88.3727, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 16, "name": "Calcutta Medical College", "lat": 22.5726, "lng": 88.3630, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 17, "name": "Charnock Hospital", "lat": 22.6155, "lng": 88.4120, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 18, "name": "Columbia Asia Hospital", "lat": 22.6150, "lng": 88.4125, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 19, "name": "Zenith Super Specialist Hospital", "lat": 22.4980, "lng": 88.3650, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 20, "name": "Neotia Hospital", "lat": 22.5808, "lng": 88.4765, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 21, "name": "IRIS Hospital", "lat": 22.5088, "lng": 88.3831, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 22, "name": "Hindustan Health Point", "lat": 22.5071, "lng": 88.3696, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 23, "name": "Howrah Hospital", "lat": 22.5958, "lng": 88.2636, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 24, "name": "Nightingale Hospital", "lat": 22.5275, "lng": 88.3622, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 25, "name": "Care & Cure Hospital", "lat": 22.5610, "lng": 88.3900, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 26, "name": "Sunrise Hospital", "lat": 22.5740, "lng": 88.4140, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 27, "name": "Green View Clinic", "lat": 22.5168, "lng": 88.3654, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 28, "name": "City Hospital Kolkata", "lat": 22.5720, "lng": 88.3902, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 29, "name": "New Life Hospital", "lat": 22.5480, "lng": 88.4015, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 30, "name": "Metro Hospital Kolkata", "lat": 22.6010, "lng": 88.3955, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 31, "name": "Prime Hospital Kolkata", "lat": 22.5900, "lng": 88.3650, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 32, "name": "Global Health Hospital", "lat": 22.5365, "lng": 88.3928, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 33, "name": "Eastern Care Hospital", "lat": 22.5552, "lng": 88.4212, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 34, "name": "Hope Hospital Kolkata", "lat": 22.5660, "lng": 88.4030, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 35, "name": "Safe Care Hospital", "lat": 22.6124, "lng": 88.3764, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 36, "name": "Wellness Hospital", "lat": 22.6230, "lng": 88.4020, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 37, "name": "Urban Health Hospital", "lat": 22.5304, "lng": 88.4105, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 38, "name": "Modern Care Hospital", "lat": 22.5440, "lng": 88.3820, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 39, "name": "Life Care Hospital", "lat": 22.5180, "lng": 88.3890, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 40, "name": "Emergency Care Centre", "lat": 22.6050, "lng": 88.3900, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 41, "name": "Super Care Hospital", "lat": 22.5860, "lng": 88.3605, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 42, "name": "North City Hospital", "lat": 22.6200, "lng": 88.4000, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 43, "name": "South Point Hospital", "lat": 22.4900, "lng": 88.3800, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 44, "name": "Lake View Hospital", "lat": 22.5155, "lng": 88.3480, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 45, "name": "Eastern Metro Hospital", "lat": 22.5605, "lng": 88.4350, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 46, "name": "West Bank Hospital", "lat": 22.5800, "lng": 88.2900, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 47, "name": "Central Kolkata Hospital", "lat": 22.5700, "lng": 88.3600, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 48, "name": "Salt Lake Care Centre", "lat": 22.5950, "lng": 88.4200, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 49, "name": "New Town Medical Centre", "lat": 22.6200, "lng": 88.4600, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-    {"id": 50, "name": "Howrah Multi Speciality Hospital", "lat": 22.5905, "lng": 88.3100, "beds": random.randint(0, 10), "doctors": random.randint(5, 20), "ambulances": random.randint(1, 5)},
-]
+manager = ConnectionManager()
 
+# ---------------- REQUEST MODEL ----------------
+class HospitalUpdate(BaseModel):
+    icu_beds: int
+    general_beds: int
+    doctors_available: int
+    ambulances: int
 
-# ---------------- API 1: GET HOSPITALS ----------------
-@app.get("/hospitals")
-def get_hospitals():
-    return hospitals
-
-
-# ---------------- API 2: REAL-TIME BED UPDATE (OPTIONAL) ----------------
-@app.get("/update_beds")
-def update_beds():
-    for h in hospitals:
-        h["beds"] = max(0, min(10, h["beds"] + random.randint(-1, 1)))
-
-    return {"message": "Beds updated", "total_hospitals": len(hospitals)}
-
-
-# ---------------- API 3: SIMPLE TEST ----------------
-@app.get("/")
-def home():
-    return {"message": "Ambulance Backend Running 🚑"}
-
+# ---------------- HOME ROUTE ----------------
 @app.get("/")
 def home():
     return {"message": "Backend is running successfully"}
 
-# Patients API
-patients = [
-    {"id": 1, "name": "Soham", "age": 20},
-    {"id": 2, "name": "Suman", "age": 21}
-]
+# ---------------- GET ALL HOSPITALS ----------------
+@app.get("/hospitals")
+def get_hospitals():
+    return [
+     
+        {
+            "id": 1,
+            "name": "Apollo Hospital",
+            "district": "Kolkata",
+            "lat": 22.5148,
+            "lng": 88.3924,
+            "beds": 5,
+            "doctors": 8,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "22:00",
+            "rating": 4.5
+        },
+        {
+            "id": 2,
+            "name": "AMRI Dhakuria",
+            "district": "Kolkata",
+            "lat": 22.5074,
+            "lng": 88.3728,
+            "beds": 2,
+            "doctors": 5,
+            "ambulances": 1,
+            "open_time": "09:00",
+            "close_time": "21:00",
+            "rating": 4.2
+        },
+        {
+            "id": 3,
+            "name": "AMRI Salt Lake",
+            "district": "Kolkata",
+            "lat": 22.5991,
+            "lng": 88.4128,
+            "beds": 6,
+            "doctors": 7,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.4
+        },
+        {
+            "id": 4,
+            "name": "Fortis Hospital Anandapur",
+            "district": "Kolkata",
+            "lat": 22.4960,
+            "lng": 88.3997,
+            "beds": 7,
+            "doctors": 9,
+            "ambulances": 3,
+            "open_time": "00:00",
+            "close_time": "23:59",
+            "rating": 4.7
+        },
+        {
+            "id": 5,
+            "name": "Medica Superspecialty",
+            "district": "Kolkata",
+            "lat": 22.5106,
+            "lng": 88.4011,
+            "beds": 4,
+            "doctors": 6,
+            "ambulances": 2,
+            "open_time": "07:00",
+            "close_time": "21:00",
+            "rating": 4.3
+        },
+        {
+            "id": 6,
+            "name": "Ruby General Hospital",
+            "district": "Kolkata",
+            "lat": 22.5015,
+            "lng": 88.4019,
+            "beds": 1,
+            "doctors": 4,
+            "ambulances": 1,
+            "open_time": "08:00",
+            "close_time": "22:00",
+            "rating": 4.1
+        },
+        {
+            "id": 7,
+            "name": "Peerless Hospital",
+            "district": "Kolkata",
+            "lat": 22.4987,
+            "lng": 88.4043,
+            "beds": 5,
+            "doctors": 6,
+            "ambulances": 2,
+            "open_time": "00:00",
+            "close_time": "23:59",
+            "rating": 4.3
+        },
+        {
+            "id": 8,
+            "name": "Desun Hospital",
+            "district": "Kolkata",
+            "lat": 22.5168,
+            "lng": 88.4025,
+            "beds": 3,
+            "doctors": 5,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.0
+        },
+        {
+            "id": 9,
+            "name": "ILS Hospital Dumdum",
+            "district": "Kolkata",
+            "lat": 22.6230,
+            "lng": 88.4240,
+            "beds": 2,
+            "doctors": 4,
+            "ambulances": 1,
+            "open_time": "09:00",
+            "close_time": "19:00",
+            "rating": 3.9
+        },
+        {
+            "id": 10,
+            "name": "ILS Hospital Salt Lake",
+            "district": "Kolkata",
+            "lat": 22.5800,
+            "lng": 88.4200,
+            "beds": 4,
+            "doctors": 5,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.0
+        },
+        {
+            "id": 11,
+            "name": "Belle Vue Clinic",
+            "district": "Kolkata",
+            "lat": 22.5355,
+            "lng": 88.3499,
+            "beds": 6,
+            "doctors": 7,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "22:00",
+            "rating": 4.2
+        },
+        {
+            "id": 12,
+            "name": "Woodlands Hospital",
+            "district": "Kolkata",
+            "lat": 22.5300,
+            "lng": 88.3420,
+            "beds": 5,
+            "doctors": 6,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "21:00",
+            "rating": 4.1
+        },
+        {
+            "id": 13,
+            "name": "CMRI Hospital",
+            "district": "Kolkata",
+            "lat": 22.5315,
+            "lng": 88.3490,
+            "beds": 7,
+            "doctors": 8,
+            "ambulances": 3,
+            "open_time": "00:00",
+            "close_time": "23:59",
+            "rating": 4.4
+        },
+        {
+            "id": 14,
+            "name": "SSKM Hospital",
+            "district": "Kolkata",
+            "lat": 22.5410,
+            "lng": 88.3410,
+            "beds": 10,
+            "doctors": 12,
+            "ambulances": 4,
+            "open_time": "00:00",
+            "close_time": "23:59",
+            "rating": 4.0
+        },
+        {
+            "id": 15,
+            "name": "NRS Medical College",
+            "district": "Kolkata",
+            "lat": 22.5620,
+            "lng": 88.3650,
+            "beds": 8,
+            "doctors": 10,
+            "ambulances": 3,
+            "open_time": "00:00",
+            "close_time": "23:59",
+            "rating": 3.8
+        },
+        {
+            "id": 16,
+            "name": "RG Kar Hospital",
+            "district": "Kolkata",
+            "lat": 22.6040,
+            "lng": 88.3780,
+            "beds": 9,
+            "doctors": 11,
+            "ambulances": 3,
+            "open_time": "00:00",
+            "close_time": "23:59",
+            "rating": 3.9
+        },
+        {
+            "id": 17,
+            "name": "Calcutta Medical College",
+            "district": "Kolkata",
+            "lat": 22.5726,
+            "lng": 88.3639,
+            "beds": 10,
+            "doctors": 12,
+            "ambulances": 4,
+            "open_time": "00:00",
+            "close_time": "23:59",
+            "rating": 4.0
+        },
+        {
+            "id": 18,
+            "name": "Charnock Hospital",
+            "district": "Kolkata",
+            "lat": 22.6180,
+            "lng": 88.4250,
+            "beds": 4,
+            "doctors": 5,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.1
+        },
+        {
+            "id": 19,
+            "name": "Columbia Asia Hospital",
+            "district": "Kolkata",
+            "lat": 22.5790,
+            "lng": 88.4220,
+            "beds": 6,
+            "doctors": 7,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "21:00",
+            "rating": 4.2
+        },
+        {
+            "id": 20,
+            "name": "Zenith Hospital",
+            "district": "Kolkata",
+            "lat": 22.5900,
+            "lng": 88.4100,
+            "beds": 3,
+            "doctors": 4,
+            "ambulances": 1,
+            "open_time": "09:00",
+            "close_time": "19:00",
+            "rating": 3.9
+        },
+        {
+            "id": 21,
+            "name": "Neotia Getwel",
+            "district": "Kolkata",
+            "lat": 22.5805,
+            "lng": 88.4205,
+            "beds": 5,
+            "doctors": 6,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.3
+        },
+        {
+            "id": 22,
+            "name": "IRIS Hospital",
+            "district": "Kolkata",
+            "lat": 22.5850,
+            "lng": 88.4050,
+            "beds": 2,
+            "doctors": 4,
+            "ambulances": 1,
+            "open_time": "10:00",
+            "close_time": "18:00",
+            "rating": 3.8
+        },
+        {
+            "id": 23,
+            "name": "Hindustan Health Point",
+            "district": "Kolkata",
+            "lat": 22.5600,
+            "lng": 88.3900,
+            "beds": 4,
+            "doctors": 5,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.0
+        },
+        {
+            "id": 24,
+            "name": "Tata Medical Center",
+            "district": "Kolkata",
+            "lat": 22.5770,
+            "lng": 88.4200,
+            "beds": 8,
+            "doctors": 10,
+            "ambulances": 3,
+            "open_time": "00:00",
+            "close_time": "23:59",
+            "rating": 4.6
+        },
+        {
+            "id": 25,
+            "name": "BP Poddar Hospital",
+            "district": "Kolkata",
+            "lat": 22.5100,
+            "lng": 88.3400,
+            "beds": 3,
+            "doctors": 5,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.0
+        },
+        {
+            "id": 26,
+            "name": "Nightangle Hospital",
+            "district": "Kolkata",
+            "lat": 22.5450,
+            "lng": 88.3500,
+            "beds": 2,
+            "doctors": 4,
+            "ambulances": 1,
+            "open_time": "09:00",
+            "close_time": "18:00",
+            "rating": 3.9
+        },
+        {
+            "id": 27,
+            "name": "Fortis Shalimar Bagh",
+            "district": "Howrah",
+            "lat": 22.6200,
+            "lng": 88.3900,
+            "beds": 5,
+            "doctors": 6,
+            "ambulances": 2,
+            "open_time": "00:00",
+            "close_time": "23:59",
+            "rating": 4.5
+        },
+        {
+            "id": 28,
+            "name": "EEDF Hospital",
+            "district": "Kolkata",
+            "lat": 22.6000,
+            "lng": 88.4100,
+            "beds": 3,
+            "doctors": 4,
+            "ambulances": 1,
+            "open_time": "09:00",
+            "close_time": "19:00",
+            "rating": 3.7
+        },
+        {
+            "id": 29,
+            "name": "LifeLine Hospital",
+            "district": "Kolkata",
+            "lat": 22.5800,
+            "lng": 88.4000,
+            "beds": 2,
+            "doctors": 3,
+            "ambulances": 1,
+            "open_time": "10:00",
+            "close_time": "18:00",
+            "rating": 3.8
+        },
+        {
+            "id": 30,
+            "name": "Care Hospital Kolkata",
+            "district": "Kolkata",
+            "lat": 22.5700,
+            "lng": 88.3900,
+            "beds": 6,
+            "doctors": 7,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "21:00",
+            "rating": 4.2
+        },
+        {
+            "id": 31,
+            "name": "Global Hospital Kolkata",
+            "district": "Kolkata",
+            "lat": 22.5600,
+            "lng": 88.3700,
+            "beds": 4,
+            "doctors": 5,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.1
+        },
+        {
+            "id": 32,
+            "name": "Sunrise Hospital",
+            "district": "Kolkata",
+            "lat": 22.5500,
+            "lng": 88.3600,
+            "beds": 3,
+            "doctors": 4,
+            "ambulances": 1,
+            "open_time": "09:00",
+            "close_time": "19:00",
+            "rating": 3.9
+        },
+        {
+            "id": 33,
+            "name": "City Care Hospital",
+            "district": "Kolkata",
+            "lat": 22.5400,
+            "lng": 88.3500,
+            "beds": 5,
+            "doctors": 6,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.0
+        },
+        {
+            "id": 34,
+            "name": "Hope Hospital",
+            "district": "Kolkata",
+            "lat": 22.5300,
+            "lng": 88.3400,
+            "beds": 4,
+            "doctors": 5,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.0
+        },
+        {
+            "id": 35,
+            "name": "GreenLife Hospital",
+            "district": "Kolkata",
+            "lat": 22.5200,
+            "lng": 88.3300,
+            "beds": 3,
+            "doctors": 4,
+            "ambulances": 1,
+            "open_time": "09:00",
+            "close_time": "18:00",
+            "rating": 3.8
+        },
+        {
+            "id": 36,
+            "name": "Metro Hospital Kolkata",
+            "district": "Kolkata",
+            "lat": 22.5100,
+            "lng": 88.3200,
+            "beds": 6,
+            "doctors": 7,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "21:00",
+            "rating": 4.2
+        },
+        {
+            "id": 37,
+            "name": "SafeCare Hospital",
+            "district": "Kolkata",
+            "lat": 22.5000,
+            "lng": 88.3100,
+            "beds": 2,
+            "doctors": 3,
+            "ambulances": 1,
+            "open_time": "10:00",
+            "close_time": "18:00",
+            "rating": 3.7
+        },
+        {
+            "id": 38,
+            "name": "Healing Touch Hospital",
+            "district": "Kolkata",
+            "lat": 22.4900,
+            "lng": 88.3000,
+            "beds": 4,
+            "doctors": 5,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.0
+        },
+        {
+            "id": 39,
+            "name": "LifeCare Hospital",
+            "district": "Kolkata",
+            "lat": 22.4800,
+            "lng": 88.2900,
+            "beds": 3,
+            "doctors": 4,
+            "ambulances": 1,
+            "open_time": "09:00",
+            "close_time": "19:00",
+            "rating": 3.9
+        },
+        {
+            "id": 40,
+            "name": "Wellness Hospital",
+            "district": "Kolkata",
+            "lat": 22.4700,
+            "lng": 88.2800,
+            "beds": 5,
+            "doctors": 6,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.1
+        },
+        {
+            "id": 41,
+            "name": "Prime Hospital Kolkata",
+            "district": "Kolkata",
+            "lat": 22.4600,
+            "lng": 88.2700,
+            "beds": 4,
+            "doctors": 5,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.0
+        },
+        {
+            "id": 42,
+            "name": "Advanced Medical Center",
+            "district": "Kolkata",
+            "lat": 22.4500,
+            "lng": 88.2600,
+            "beds": 3,
+            "doctors": 4,
+            "ambulances": 1,
+            "open_time": "09:00",
+            "close_time": "18:00",
+            "rating": 3.8
+        },
+        {
+            "id": 43,
+            "name": "Eastern Care Hospital",
+            "district": "Kolkata",
+            "lat": 22.4400,
+            "lng": 88.2500,
+            "beds": 5,
+            "doctors": 6,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.0
+        },
+        {
+            "id": 44,
+            "name": "NewLife Hospital",
+            "district": "Kolkata",
+            "lat": 22.4300,
+            "lng": 88.2400,
+            "beds": 4,
+            "doctors": 5,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.1
+        },
+        {
+            "id": 45,
+            "name": "Urban Health Center",
+            "district": "Kolkata",
+            "lat": 22.4200,
+            "lng": 88.2300,
+            "beds": 2,
+            "doctors": 3,
+            "ambulances": 1,
+            "open_time": "10:00",
+            "close_time": "17:00",
+            "rating": 3.7
+        },
+        {
+            "id": 46,
+            "name": "City Hospital East",
+            "district": "Kolkata",
+            "lat": 22.4100,
+            "lng": 88.2200,
+            "beds": 3,
+            "doctors": 4,
+            "ambulances": 1,
+            "open_time": "09:00",
+            "close_time": "18:00",
+            "rating": 3.8
+        },
+        {
+            "id": 47,
+            "name": "MetroCare Hospital",
+            "district": "Kolkata",
+            "lat": 22.4000,
+            "lng": 88.2100,
+            "beds": 5,
+            "doctors": 6,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.0
+        },
+        {
+            "id": 48,
+            "name": "HealthFirst Clinic",
+            "district": "Kolkata",
+            "lat": 22.3900,
+            "lng": 88.2000,
+            "beds": 2,
+            "doctors": 3,
+            "ambulances": 1,
+            "open_time": "10:00",
+            "close_time": "18:00",
+            "rating": 3.7
+        },
+        {
+            "id": 49,
+            "name": "Urban Life Hospital",
+            "district": "Kolkata",
+            "lat": 22.3800,
+            "lng": 88.1900,
+            "beds": 4,
+            "doctors": 5,
+            "ambulances": 2,
+            "open_time": "08:00",
+            "close_time": "20:00",
+            "rating": 4.0
+        },
+        {
+            "id": 50,
+            "name": "CityMed Hospital",
+            "district": "Kolkata",
+            "lat": 22.3700,
+            "lng": 88.1800,
+            "beds": 3,
+            "doctors": 4,
+            "ambulances": 1,
+            "open_time": "09:00",
+            "close_time": "18:00",
+            "rating": 3.8
+        }
+    ]
+    
 
-@app.get("/patients")
-def get_patients():
-    return patients
+# ---------------- UPDATE HOSPITAL ----------------
+@app.put("/hospitals/{hospital_id}")
+async def update_hospital(hospital_id: int, data: HospitalUpdate, db: Session = Depends(get_db)):
+    hospital = db.query(Hospital).filter(Hospital.id == hospital_id).first()
 
-@app.post("/patients")
-def add_patient(patient: dict):
-    patients.append(patient)
-    return {"message": "Patient added"}
+    if not hospital:
+        return {"error": "Hospital not found"}
 
-@app.delete("/patients/{patient_id}")
-def delete_patient(patient_id: int):
-    global patients
-    patients = [p for p in patients if p["id"] != patient_id]
-    return {"message": "Patient deleted"}
+    hospital.icu_beds = data.icu_beds
+    hospital.general_beds = data.general_beds
+    hospital.doctors_available = data.doctors_available
+    hospital.ambulances = data.ambulances
 
-# Doctors API
-doctors = [
-    {"id": 1, "name": "Dr. Sen", "specialization": "Cardiology"},
-    {"id": 2, "name": "Dr. Roy", "specialization": "Neurology"}
-]
+    db.commit()
 
-@app.get("/doctors")
-def get_doctors():
-    return doctors
+    # send live update to frontend
+    await manager.broadcast("hospital_updated")
 
-@app.post("/doctors")
-def add_doctor(doctor: dict):
-    doctors.append(doctor)
-    return {"message": "Doctor added"}
+    return {"message": "Hospital updated successfully"}
 
-@app.delete("/doctors/{doctor_id}")
-def delete_doctor(doctor_id: int):
-    global doctors
-    doctors = [d for d in doctors if d["id"] != doctor_id]
-    return {"message": "Doctor deleted"}
-
-# Appointments API
-appointments = [
-    {"id": 1, "patient": "Soham", "doctor": "Dr. Sen"},
-    {"id": 2, "patient": "Suman", "doctor": "Dr. Roy"}
-]
-
-@app.get("/appointments")
-def get_appointments():
-    return appointments
-
-@app.post("/appointments")
-def add_appointment(appointment: dict):
-    appointments.append(appointment)
-    return {"message": "Appointment added"}
-
-@app.delete("/appointments/{appointment_id}")
-def delete_appointment(appointment_id: int):
-    global appointments
-    appointments = [a for a in appointments if a["id"] != appointment_id]
-    return {"message": "Appointment deleted"}
-billing = [
-    {"id": 1, "patient": "Rahul Das", "amount": 200},
-    {"id": 2, "patient": "Tumpa Sen", "amount": 150},
-    {"id": 3, "patient": "Suman Ghosh", "amount": 300},
-    {"id": 4, "patient": "Mita Roy", "amount": 250},
-    {"id": 5, "patient": "Abhijit Pal", "amount": 180}
-]
-
-@app.get("/billing")
-def get_billing():
-    return billing
-reports = {
-    "total_patients": 2,
-    "total_doctors": 2,
-    "total_appointments": 2,
-    "total_revenue": 1080
-}
-
-@app.get("/reports")
-def get_reports():
-    return reports
-
+# ---------------- WEBSOCKET ----------------
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
