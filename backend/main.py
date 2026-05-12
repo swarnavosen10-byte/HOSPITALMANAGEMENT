@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
+from datetime import datetime
 
 from database import SessionLocal, Hospital, Patient, Doctor, Appointment, Billing
 
@@ -110,10 +111,173 @@ class BillingResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# ================== LOGIN MODELS ==================
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+    role: str
+
+class LoginResponse(BaseModel):
+    success: bool
+    username: Optional[str] = None
+    role: Optional[str] = None
+    message: str
+
+# ================== NOTIFICATION MODEL ==================
+class Notification(BaseModel):
+    id: int
+    title: str
+    message: str
+    type: str
+
+# ================== DASHBOARD MODELS ==================
+class AdminDashboard(BaseModel):
+    total_patients: int
+    total_doctors: int
+    total_appointments: int
+    total_revenue: int
+    total_hospitals: int
+
+class PatientDashboard(BaseModel):
+    available_hospitals: int
+    available_doctors: int
+    my_appointments: int
+    ambulances_available: int
+
+class DoctorDashboard(BaseModel):
+    total_appointments: int
+    total_patients: int
+    today_appointments: int
+    pending_appointments: int
+
+class StaffDashboard(BaseModel):
+    total_patients: int
+    total_doctors: int
+    total_appointments: int
+    available_beds: int
+    ambulances_available: int
+
+class BroadcastUpdate(BaseModel):
+    hospital_id: int
+    beds_available: int
+    ambulances_available: int
+
 # ================== HOME ROUTE ==================
 @app.get("/")
 def home():
     return {"message": "Backend is running successfully"}
+
+# ================== LOGIN ENDPOINT ==================
+# Demo user credentials
+DEMO_USERS = {
+    "admin:123": {"username": "admin", "role": "admin"},
+    "patient:123": {"username": "patient", "role": "patient"},
+    "doctor:123": {"username": "doctor", "role": "doctor"},
+    "staff:123": {"username": "staff", "role": "staff"},
+}
+
+@app.post("/login", response_model=LoginResponse)
+def login(request: LoginRequest):
+    """Validate login credentials for demo users"""
+    key = f"{request.username}:{request.password}"
+    
+    if key in DEMO_USERS and DEMO_USERS[key]["role"] == request.role:
+        user = DEMO_USERS[key]
+        return LoginResponse(
+            success=True,
+            username=user["username"],
+            role=user["role"],
+            message="Login successful"
+        )
+    
+    return LoginResponse(
+        success=False,
+        message="Invalid username, password, or role"
+    )
+
+# ================== ROLE-BASED DASHBOARD ENDPOINTS ==================
+@app.get("/admin/dashboard", response_model=AdminDashboard)
+def get_admin_dashboard(db: Session = Depends(get_db)):
+    """Get admin dashboard statistics"""
+    total_patients = db.query(Patient).count()
+    total_doctors = db.query(Doctor).count()
+    total_appointments = db.query(Appointment).count()
+    
+    billing_records = db.query(Billing).all()
+    total_revenue = sum(bill.amount for bill in billing_records)
+    
+    # Count hospitals from the database or return 5 as minimum from seed
+    total_hospitals = db.query(Hospital).count()
+    if total_hospitals == 0:
+        total_hospitals = 5
+    
+    return AdminDashboard(
+        total_patients=total_patients,
+        total_doctors=total_doctors,
+        total_appointments=total_appointments,
+        total_revenue=total_revenue,
+        total_hospitals=total_hospitals
+    )
+
+@app.get("/patient/dashboard", response_model=PatientDashboard)
+def get_patient_dashboard(db: Session = Depends(get_db)):
+    """Get patient-friendly dashboard"""
+    hospitals = db.query(Hospital).all()
+    doctors = db.query(Doctor).all()
+    appointments = db.query(Appointment).all()
+    
+    available_hospitals = len([h for h in hospitals if h.beds > 0])
+    available_doctors = len(doctors)
+    my_appointments = len([a for a in appointments if a.status == "scheduled"])
+    
+    total_ambulances = sum(h.ambulances for h in hospitals)
+    
+    return PatientDashboard(
+        available_hospitals=available_hospitals,
+        available_doctors=available_doctors,
+        my_appointments=my_appointments,
+        ambulances_available=total_ambulances
+    )
+
+@app.get("/doctor/dashboard", response_model=DoctorDashboard)
+def get_doctor_dashboard(db: Session = Depends(get_db)):
+    """Get doctor dashboard statistics"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    total_appointments = db.query(Appointment).count()
+    
+    # Get unique patients from appointments
+    appointments = db.query(Appointment).all()
+    unique_patients = len(set(a.patient for a in appointments))
+    
+    today_appointments = len([a for a in appointments if a.date == today])
+    pending_appointments = len([a for a in appointments if a.status == "scheduled"])
+    
+    return DoctorDashboard(
+        total_appointments=total_appointments,
+        total_patients=unique_patients,
+        today_appointments=today_appointments,
+        pending_appointments=pending_appointments
+    )
+
+@app.get("/staff/dashboard", response_model=StaffDashboard)
+def get_staff_dashboard(db: Session = Depends(get_db)):
+    """Get staff dashboard statistics"""
+    total_patients = db.query(Patient).count()
+    total_doctors = db.query(Doctor).count()
+    total_appointments = db.query(Appointment).count()
+    
+    hospitals = db.query(Hospital).all()
+    available_beds = sum(h.beds for h in hospitals)
+    available_ambulances = sum(h.ambulances for h in hospitals)
+    
+    return StaffDashboard(
+        total_patients=total_patients,
+        total_doctors=total_doctors,
+        total_appointments=total_appointments,
+        available_beds=available_beds,
+        ambulances_available=available_ambulances
+    )
 
 # ================== PATIENTS ENDPOINTS ==================
 @app.get("/patients", response_model=List[PatientResponse])
@@ -224,6 +388,161 @@ def delete_billing(billing_id: int, db: Session = Depends(get_db)):
     db.delete(billing)
     db.commit()
     return {"message": "Billing record deleted successfully"}
+
+# ================== PATIENT APPOINTMENT ENDPOINTS ==================
+@app.get("/patient/appointments", response_model=List[AppointmentResponse])
+def get_patient_appointments(db: Session = Depends(get_db)):
+    """Get all patient appointments"""
+    appointments = db.query(Appointment).filter(Appointment.status == "scheduled").all()
+    return appointments
+
+@app.post("/patient/book-appointment")
+def book_patient_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db)):
+    """Book a new appointment for patient"""
+    try:
+        new_appointment = Appointment(
+            patient=appointment.patient,
+            doctor=appointment.doctor,
+            date=appointment.date,
+            time=appointment.time,
+            status=appointment.status or "scheduled"
+        )
+        db.add(new_appointment)
+        db.commit()
+        db.refresh(new_appointment)
+        return {
+            "success": True,
+            "message": "Appointment booked successfully",
+            "appointment_id": new_appointment.id
+        }
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "message": f"Failed to book appointment: {str(e)}"
+        }
+
+# ================== DOCTOR SUPPORT ENDPOINTS ==================
+@app.get("/doctor/appointments", response_model=List[AppointmentResponse])
+def get_doctor_appointments(db: Session = Depends(get_db)):
+    """Get all doctor appointments"""
+    appointments = db.query(Appointment).all()
+    return appointments
+
+@app.get("/doctor/patients", response_model=List[PatientResponse])
+def get_doctor_patients(db: Session = Depends(get_db)):
+    """Get all patients for doctor"""
+    patients = db.query(Patient).all()
+    return patients
+
+@app.get("/doctor/notifications")
+def get_doctor_notifications():
+    """Get doctor notifications"""
+    return [
+        {
+            "id": 1,
+            "title": "New appointment request",
+            "message": "Patient John has requested an appointment",
+            "type": "info"
+        },
+        {
+            "id": 2,
+            "title": "Schedule reminder",
+            "message": "You have 3 appointments today",
+            "type": "info"
+        }
+    ]
+
+@app.get("/doctor/schedule")
+def get_doctor_schedule(db: Session = Depends(get_db)):
+    """Get doctor schedule from appointments"""
+    appointments = db.query(Appointment).all()
+    return [
+        {
+            "id": a.id,
+            "patient": a.patient,
+            "date": a.date,
+            "time": a.time,
+            "status": a.status
+        }
+        for a in appointments
+    ]
+
+# ================== STAFF SUPPORT ENDPOINTS ==================
+@app.get("/staff/patients", response_model=List[PatientResponse])
+def get_staff_patients(db: Session = Depends(get_db)):
+    """Get all patients for staff"""
+    patients = db.query(Patient).all()
+    return patients
+
+@app.get("/staff/doctors", response_model=List[DoctorResponse])
+def get_staff_doctors(db: Session = Depends(get_db)):
+    """Get all doctors for staff"""
+    doctors = db.query(Doctor).all()
+    return doctors
+
+@app.get("/staff/appointments", response_model=List[AppointmentResponse])
+def get_staff_appointments(db: Session = Depends(get_db)):
+    """Get all appointments for staff"""
+    appointments = db.query(Appointment).all()
+    return appointments
+
+@app.get("/staff/reports")
+def get_staff_reports(db: Session = Depends(get_db)):
+    """Get staff reports"""
+    total_patients = db.query(Patient).count()
+    total_doctors = db.query(Doctor).count()
+    total_appointments = db.query(Appointment).count()
+    
+    billing_records = db.query(Billing).all()
+    total_revenue = sum(bill.amount for bill in billing_records)
+    
+    return {
+        "total_patients": total_patients,
+        "total_doctors": total_doctors,
+        "total_appointments": total_appointments,
+        "total_revenue": total_revenue
+    }
+
+@app.get("/staff/notifications")
+def get_staff_notifications():
+    """Get staff notifications"""
+    return [
+        {
+            "id": 1,
+            "title": "Emergency bed update",
+            "message": "Hospital bed availability updated",
+            "type": "info"
+        },
+        {
+            "id": 2,
+            "title": "New patient admission",
+            "message": "A new patient has been admitted",
+            "type": "info"
+        },
+        {
+            "id": 3,
+            "title": "Doctor unavailable",
+            "message": "Dr. Sen will be unavailable tomorrow",
+            "type": "warning"
+        }
+    ]
+
+@app.get("/staff/schedule")
+def get_staff_schedule(db: Session = Depends(get_db)):
+    """Get staff schedule from appointments"""
+    appointments = db.query(Appointment).all()
+    return [
+        {
+            "id": a.id,
+            "patient": a.patient,
+            "doctor": a.doctor,
+            "date": a.date,
+            "time": a.time,
+            "status": a.status
+        }
+        for a in appointments
+    ]
 
 # ================== REPORTS ENDPOINT ==================
 @app.get("/reports")
@@ -922,6 +1241,44 @@ async def update_hospital(hospital_id: int, data: HospitalUpdate, db: Session = 
 
     return {"message": "Hospital updated successfully"}
 
+# ================== BROADCAST HOSPITAL UPDATE ==================
+@app.post("/broadcast/hospital-update")
+async def broadcast_hospital_update(update: BroadcastUpdate, db: Session = Depends(get_db)):
+    """Update hospital and broadcast to WebSocket clients"""
+    try:
+        hospital = db.query(Hospital).filter(Hospital.id == update.hospital_id).first()
+        
+        if not hospital:
+            return {
+                "success": False,
+                "message": "Hospital not found"
+            }
+        
+        # Update hospital data
+        hospital.beds = update.beds_available
+        hospital.ambulances = update.ambulances_available
+        db.commit()
+        
+        # Broadcast update to WebSocket clients
+        broadcast_message = {
+            "type": "hospital_update",
+            "hospital_id": update.hospital_id,
+            "beds_available": update.beds_available,
+            "ambulances_available": update.ambulances_available
+        }
+        import json
+        await manager.broadcast(json.dumps(broadcast_message))
+        
+        return {
+            "success": True,
+            "message": "Hospital updated and broadcasted successfully"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to update hospital: {str(e)}"
+        }
+
 # ================== WEBSOCKET ==================
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -930,5 +1287,17 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+@app.websocket("/ws/hospitals")
+async def websocket_hospitals(websocket: WebSocket):
+    """WebSocket endpoint for hospital resource updates"""
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            # Broadcast hospital updates to all connected clients
+            await manager.broadcast(data)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
