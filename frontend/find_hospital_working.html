@@ -2,157 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Find Hospitals Working UI</title>
- <style>
-  .hospital-logo-img {
-  width: 100px;
-  height: 100px;
-  object-fit: contain;
-  animation: pulselogo 1.5s infinite;
-}
-  #entryAnimation {
-    .entry-logo {
-  font-size: 85px;
-  animation: pulseLogo 2.5s infinite;
-}
-  position: fixed;
-  inset: 0;
-  background: linear-gradient(135deg, #1e3a8a, #4a4abf);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  color: white;
-  z-index: 999999;
-  animation: hideEntry 1s forwards;
-  animation-delay: 3s;
-}
- 
-  
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
-    }
-
-    body {
-      background: #f4f7fb;
-      padding: 30px;
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 30px;
-      color: #222;
-    }
-
-    .phone-wrapper {
-      display: flex;
-      justify-content: center;
-      gap: 30px;
-      flex-wrap: wrap;
-    }
-
-    .phone {
-      width: 280px;
-      height: 600px;
-      background: white;
-      border: 10px solid #111;
-      border-radius: 35px;
-      overflow: hidden;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-      position: relative;
-    }
-
-    .phone-header {
-      background: #4a4abf;
-      color: white;
-      text-align: center;
-      padding: 14px;
-      font-size: 14px;
-      font-weight: bold;
-    }
-
-    .screen-content {
-      padding: 20px 16px;
-      height: calc(100% - 50px);
-      overflow-y: auto;
-    }
-
-    .section-title {
-      font-size: 20px;
-      font-weight: bold;
-      margin-bottom: 20px;
-      color: #222;
-    }
-
-    .input-box, .select-box {
-      width: 100%;
-      padding: 10px;
-      border: none;
-      border-bottom: 2px solid #bbb;
-      margin-bottom: 18px;
-      outline: none;
-      font-size: 14px;
-      background: transparent;
-    }
-
-    .btn {
-      width: 100%;
-      padding: 12px;
-      background: #4a4abf;
-      color: white;
-}
-
-.entry-title {
-  font-size: 42px;
-  font-weight: bold;
-  margin-top: 10px;
-  letter-spacing: 2px;
-}
-
-.entry-subtitle {
-  margin-top: 10px;
-  font-size: 18px;
-}
-
-.entry-bar {
-  width: 260px;
-  height: 8px;
-  background: rgba(255,255,255,0.3);
-  border-radius: 20px;
-  margin-top: 22px;
-  overflow: hidden;
-}
-
-.entry-fill {
-  height: 100%;
-  width: 0;
-  background: white;
-  transition: width 1s;
-}
-
-@keyframes fillEntry {
-  from { width: 0; }
-  to { width: 100%; }
-}
-
-@keyframes pulseLogo {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.18); }
-  100% { transform: scale(1); }
-}
-
-@keyframes hideEntry {
-  to {
-    opacity: 0;
-    visibility: hidden;
-  }
-}
-  
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Find Hospitals Working UI</title>
+  <style>
     * {
       box-sizing: border-box;
       margin: 0;
@@ -329,87 +181,10 @@
   top: 0;
   width: var(--rating-percent);
   overflow: hidden;
-}.searching-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.85);
-  display: none;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  z-index: 9999;
-  color: white;
 }
-
-.searching-icon {
-  font-size: 70px;
-  animation: scanPulse 1s infinite;
-}
-
-.searching-text {
-  margin-top: 18px;
-  font-size: 24px;
-  font-weight: bold;
-}
-
-.searching-line {
-  width: 260px;
-  height: 6px;
-  background: #334155;
-  border-radius: 20px;
-  margin-top: 20px;
-  overflow: hidden;
-}
-
-.searching-fill {
-  height: 100%;
-  width: 0;
-  background: #4a4abf;
-  animation: searchFill 1.5s forwards;
-}
-
-@keyframes scanPulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.18); }
-  100% { transform: scale(1); }
-}
-
-@keyframes searchFill {
-  from { width: 0; }
-  to { width: 100%; }
-}
-  
-</style>
+  </style>
 </head>
- 
 <body>
-  
-  <div id="entryAnimation">
-  <div class="hospital-loader">
-   <img 
-src="https://cdn-icons-png.flaticon.com/512/2967/2967350.png"
-class="hospital-logo-img">
-  <div class="hospital-building"></div>
- 
-</div>
-  <div class="entry-title">MediSync</div>
-  <div class="entry-subtitle">
-    Smart Hospital Discovery System
-  </div>
-<div id="entryStatus" class="entry-status">
-  Initializing Smart Healthcare System...
-</div>
-  <div class="entry-bar">
-    <div class="entry-fill"></div>
-  </div>
-</div>
-  <div id="searchingOverlay" class="searching-overlay">
-  <div class="searching-icon">🔍🏥</div>
-  <div class="searching-text">Wait A Second Finding hospitals...</div>
-  <div class="searching-line">
-    <div class="searching-fill"></div>
-  </div>
-</div>
 
   <h1>Find Hospitals</h1>
 
@@ -468,43 +243,24 @@ class="hospital-logo-img">
   </div>
 
   <script>
-    function updateLoading(percent) {
-  document.querySelector(".entry-fill").style.width =
-    percent + "%";
-}
   let allHospitals = [];
 
 async function loadHospitals() {
   try {
-    updateLoading(10);
-
-    document.getElementById("entryStatus").innerText =
-      "Connecting to MediSync servers...";
+    alert("Trying to fetch hospitals from backend...");
 
     const response = await fetch("http://127.0.0.1:8000/hospitals");
 
-    updateLoading(40);
-
-    document.getElementById("entryStatus").innerText =
-      "Fetching live hospital database...";
+    alert("Response received from backend");
 
     const data = await response.json();
 
-    updateLoading(75);
+    alert("Hospitals received: " + data.length);
 
-    document.getElementById("entryStatus").innerText =
-      "Emergency Healthcare Network Ready...";
+    console.log("Hospital data from backend:", data);
 
-    setTimeout(() => {
-      updateLoading(100);
-
-      allHospitals = data;
-
-      renderHospitalCards(allHospitals);
-
-      document.getElementById("entryAnimation").style.display = "none";
-    }, 2500);
-
+    allHospitals = data;
+    renderHospitalCards(allHospitals);
   } catch (error) {
     console.error("Error loading hospitals:", error);
     alert("Hospital data not loading from backend");
@@ -573,62 +329,52 @@ document.getElementById("detailRating").innerHTML =
 }
 
    function findHospitals() {
-  const overlay = document.getElementById("searchingOverlay");
-  overlay.style.display = "flex";
+  const nameValue = document.getElementById("searchName").value.trim().toLowerCase();
+  const locationValue = document.getElementById("searchLocation").value.trim().toLowerCase();
+  const dateValue = document.getElementById("searchDate").value;
+  const timeValue = document.getElementById("searchTime").value;
 
-  setTimeout(() => {
-    const nameValue = document.getElementById("searchName").value.trim().toLowerCase();
-    const locationValue = document.getElementById("searchLocation").value.trim().toLowerCase();
-    const dateValue = document.getElementById("searchDate").value;
-    const timeValue = document.getElementById("searchTime").value;
-    
-    if (!dateValue) {
-      overlay.style.display = "none";
-      alert("Please choose a date");
-      return;
-    }
+  if (!dateValue) {
+    alert("Please choose a date");
+    return;
+  }
 
-    if (!timeValue) {
-      overlay.style.display = "none";
-      alert("Please choose a time");
-      return;
-    }
+  if (!timeValue) {
+    alert("Please choose a time");
+    return;
+  }
 
-    const filtered = allHospitals.filter(hospital => {
-      const matchName =
-        !nameValue ||
-        hospital.name.toLowerCase().includes(nameValue);
+  const filtered = allHospitals.filter(hospital => {
+    const matchName = !nameValue || hospital.name.toLowerCase().includes(nameValue);
 
-      const matchLocation =
-        !locationValue ||
-        (hospital.district && hospital.district.toLowerCase().includes(locationValue)) ||
-        (hospital.name && hospital.name.toLowerCase().includes(locationValue));
+   const matchLocation =
+  !locationValue ||
+  (hospital.district && hospital.district.toLowerCase().includes(locationValue)) ||
+  (hospital.name && hospital.name.toLowerCase().includes(locationValue));
 
-      return matchName && matchLocation;
-    });
+    return matchName && matchLocation;
+  });
 
-    renderHospitalCards(filtered);
 
-    if (filtered.length > 0) {
-      showHospitalDetails(filtered[0]);
-    } else {
-      document.getElementById("detailName").innerText = "No Hospital Found";
-      document.getElementById("detailDistance").innerText =
-        "Date: " + dateValue + " | Time: " + timeValue;
-      document.getElementById("detailDescription").innerText =
-        "No hospital matched your search filters.";
+  renderHospitalCards(filtered);
 
-      document.getElementById("detailBeds").innerText = "Beds: -";
-      document.getElementById("detailDoctors").innerText = "Doctors: -";
-      document.getElementById("detailAmbulances").innerText = "Ambulances: -";
-      document.getElementById("detailLocation").innerText =
-        "Location filter: " + (locationValue || "Any");
-    }
+ if (filtered.length > 0) {
+  showHospitalDetails(filtered[0]);
+ }else {
+  document.getElementById("detailName").innerText = "No Hospital Found";
+  document.getElementById("detailDistance").innerText =
+    "Date: " + dateValue + " | Time: " + timeValue;
+  document.getElementById("detailDescription").innerText =
+    "No hospital matched your search filters.";
 
-    overlay.style.display = "none";
-  }, 1500);
+  document.getElementById("detailBeds").innerText = "Beds: -";
+  document.getElementById("detailDoctors").innerText = "Doctors: -";
+  document.getElementById("detailAmbulances").innerText = "Ambulances: -";
+  document.getElementById("detailLocation").innerText =
+    "Location filter: " + (locationValue || "Any");
+   
 }
-  
+}
     loadHospitals();
   </script>
 
