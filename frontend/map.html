@@ -97,15 +97,166 @@
       color: #666;
       font-size: 13px;
     }
+    #loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(244, 248, 251, 0.95);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  flex-direction: column;
+}
+
+.spinner {
+  width: 55px;
+  height: 55px;
+  border: 6px solid #dbeafe;
+  border-top: 6px solid #0f4c81;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+#loader p {
+  margin-top: 15px;
+  color: #0f4c81;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+#entry-screen {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #041421, #0f4c81, #075985);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  color: white;
+  z-index: 999999;
+  animation: hideScreen 1.2s forwards;
+  animation-delay: 5s;
+}
+
+.road {
+  width: 320px;
+  height: 6px;
+  background: #dbeafe;
+  border-radius: 20px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: visible;
+}
+
+.moving-ambulance {
+  font-size: 55px;
+  position: absolute;
+  top: -65px;
+  left: -70px;
+  z-index: 10;
+  transform: scaleX(-1);
+  animation: ambulanceMove 4s linear forwards;
+}
+
+.entry-title {
+  font-size: 46px;
+  font-weight: bold;
+  margin-top: 20px;
+  text-shadow: 0 0 20px #38bdf8;
+}
+
+.entry-subtitle {
+  font-size: 18px;
+  margin-top: 10px;
+}
+
+.download-icon {
+  font-size: 32px;
+  margin-top: 22px;
+  animation: downloadBounce 1s infinite;
+}
+
+.progress-box {
+  width: 280px;
+  height: 8px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 20px;
+  margin-top: 15px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: #38bdf8;
+  animation: fillProgress 4s forwards;
+}
+
+@keyframes ambulanceMove {
+  from { left: -70px; }
+  to { left: 330px; }
+}
+
+@keyframes downloadBounce {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes fillProgress {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes hideScreen {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
   </style>
 </head>
 
 <body>
+  
+<div id="entry-screen">
+
+  <div class="road">
+    <div class="moving-ambulance">🚑</div>
+  </div>
+
+  <div class="entry-title">MediSync</div>
+
+  <div class="entry-subtitle">
+    Entering Emergency Healthcare Network...
+  </div>
+
+  <div class="download-icon">⬇️</div>
+
+  <div class="progress-box">
+    <div class="progress-fill"></div>
+  </div>
+
+</div>
+  <div id="loader">
+  <div class="spinner"></div>
+  <p>Loading hospitals...</p>
+</div>
 
   <h2>🏥 Hospital Availability Map</h2>
 
   <div class="top-controls">
     <input type="text" id="searchBox" placeholder="Search hospital by name..." onkeyup="handleEnter(event)" />
+    <select id="hospitalDropdown" onchange="selectHospitalFromDropdown()">
+  <option value="">Select Hospital</option>
+</select>
     <button onclick="applyFilter('all')">All Hospitals</button>
     <button onclick="applyFilter('available')">Beds Available</button>
     <button onclick="applyFilter('nobeds')">No Beds</button>
@@ -135,7 +286,7 @@
     let currentFilter = "all";
     let selectedMarker = null;
     let userLocation = null;
-
+    let allhospitals = [];
     function initMap() {
       const defaultLocation = { lat: 22.5726, lng: 88.3639 };
 
@@ -148,11 +299,14 @@
   .then(response => response.json())
   .then(hospitals => {
     console.log("Hospitals data:", hospitals);
-    alert("Hospitals loaded: " + hospitals.length);
+   
     allHospitals = hospitals;
     showHospitals(allHospitals);
+    fillHospitalDropdown(allHospitals);
+    document.getElementById("loader").style.display = "none";
   })
   .catch(error => {
+    document.getElementById("loader").style.display = "none";
     console.error("Error loading hospitals:", error);
     alert("Hospital data is not loading from backend");
   });
@@ -262,6 +416,11 @@ marker.hospitalBeds = hospital.beds;
           <p><strong>Longitude:</strong> ${hospital.lng}</p>
           <p><strong>Doctors:</strong> ${hospital.doctors ?? "Not added yet"}</p>
           <p><strong>Ambulances:</strong> ${hospital.ambulances ?? "Not added yet"}</p>
+          <br>
+
+<a href="ambulance-booking.html">
+  <button>🚑 Book Emergency Ambulance</button>
+</a>
         </div>
       `;
     }
@@ -278,6 +437,7 @@ marker.hospitalBeds = hospital.beds;
   }
 
   const searchText = document.getElementById("searchBox").value.trim().toLowerCase();
+  
 
   if (searchText !== "") {
     filteredHospitals = filteredHospitals.filter(hospital =>
@@ -534,7 +694,38 @@ function recommendBestHospitals() {
 
   document.getElementById("details").innerHTML = html;
 }
+function fillHospitalDropdown(hospitalList) {
+  const dropdown = document.getElementById("hospitalDropdown");
+
+  dropdown.innerHTML = `<option value="">Select Hospital</option>`;
+
+  hospitalList.forEach((hospital, index) => {
+    const option = document.createElement("option");
+    option.value = index;
+    option.textContent = hospital.name;
+    dropdown.appendChild(option);
+  });
+}
+
+function selectHospitalFromDropdown() {
+  const dropdown = document.getElementById("hospitalDropdown");
+  const index = dropdown.value;
+
+  if (index === "") return;
+
+  const hospital = allHospitals[index];
+
+  map.setCenter({
+    lat: hospital.lat,
+    lng: hospital.lng
+  });
+
+  map.setZoom(15);
+
+  showHospitalDetails(hospital);
+}
   </script>
+  
 
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBVBCnMAeLxXqpyg1yNJ5v2J8LBcqdY8i0&callback=initMap" async defer></script>
 

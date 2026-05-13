@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ambulance Booking</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+    }
+
+    .header {
+      background: #dc2626;
+      color: white;
+      padding: 18px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 30px auto;
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #1f2937;
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 15px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 15px;
+    }
+
+    button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 12px;
+      background: #dc2626;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 17px;
+      cursor: pointer;
+    }
+
+    .success {
+      margin-top: 20px;
+      padding: 15px;
+      background: #dcfce7;
+      color: #166534;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .back {
+      display: block;
+      margin-top: 15px;
+      text-align: center;
+      color: #2563eb;
+      text-decoration: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="header">
+    🚑 Emergency Ambulance Booking
+  </div>
+
+  <div class="container">
+    <h2>Register Patient for Emergency Ambulance</h2>
+
+    <label>Patient Name</label>
+    <input type="text" id="patientName" placeholder="Enter patient name">
+
+    <label>Phone Number</label>
+    <input type="text" id="phone" placeholder="Enter phone number">
+
+    <label>Emergency Type</label>
+    <select id="emergencyType">
+
+  <option value="">Select emergency type</option>
+
+  <option>🚑 Road Accident</option>
+
+  <option>❤️ Heart Attack</option>
+
+  <option>🧠 Stroke</option>
+
+  <option>🔥 Burn Injury</option>
+
+  <option>🤰 Pregnancy Emergency</option>
+
+  <option>🩸 Heavy Bleeding</option>
+
+  <option>🦴 Bone Fracture</option>
+
+  <option>😮 Breathing Problem</option>
+
+  <option>☠ Poisoning</option>
+
+  <option>⚡ Electric Shock</option>
+
+  <option>🧒 Child Emergency</option>
+
+  <option>🫀 Chest Pain</option>
+
+  <option>🧑‍🦽 Paralysis Attack</option>
+
+  <option>🦠 Infection Emergency</option>
+
+  <option>😵 Unconscious Patient</option>
+
+  <option>🚨 ICU Transfer</option>
+
+  <option>🧪 Dialysis Emergency</option>
+
+  <option>🧓 Senior Citizen Emergency</option>
+
+  <option>🧬 Cancer Emergency</option>
+
+  <option>🚑 General Medical Emergency</option>
+
+</select>
+
+    <label>Pickup Address</label>
+    <textarea id="address" rows="3" placeholder="Enter pickup address"></textarea>
+
+    <label>Preferred Hospital</label>
+    <label>Priority Level</label>
+
+<select id="priority">
+
+  <option>🔴 Critical</option>
+
+  <option>🟠 Medium</option>
+
+  <option>🟢 Normal</option>
+
+</select>
+  <select id="hospitalName">
+  <option value="">Loading hospitals...</option>
+</select>
+
+    <button onclick="bookAmbulance()">Book Ambulance Now</button>
+
+    <div class="success" id="successBox"></div>
+
+    <a class="back" href="/frontend/map.html">← Back to Hospital Map</a>
+  </div>
+
+  <script>
+    function getRandomDriverName() {
+  const drivers = ["Rajesh Das", "Amit Roy", "Sanjay Paul", "Ratan Dey", "Bikash Sen"];
+  return drivers[Math.floor(Math.random() * drivers.length)];
+}
+
+function getRandomAmbulanceNo() {
+  const ambulanceNumbers = ["WB-02-EM-104", "WB-04-AMB-221", "WB-20-ER-509", "WB-12-MED-330", "WB-08-EMS-718"];
+  return ambulanceNumbers[Math.floor(Math.random() * ambulanceNumbers.length)];
+}
+
+function getRandomEstimatedTime() {
+  const times = ["8 minutes", "10 minutes", "12 minutes", "15 minutes", "18 minutes"];
+  return times[Math.floor(Math.random() * times.length)];
+}
+function getRandomAmbulanceStatus() {
+
+  const statuses = [
+    "✅ Available",
+    "🚑 Dispatched",
+    "⏳ Busy in Another Emergency",
+    "❌ No Ambulance Available"
+  ];
+
+  return statuses[Math.floor(Math.random() * statuses.length)];
+}
+async function loadHospitals() {
+  const hospitalSelect = document.getElementById("hospitalName");
+
+  try {
+    const response = await fetch("http://127.0.0.1:8000/hospitals");
+    const hospitals = await response.json();
+
+    hospitalSelect.innerHTML = `<option value="">Select Hospital</option>`;
+
+    hospitals.forEach(hospital => {
+      const option = document.createElement("option");
+      option.value = hospital.name;
+      option.textContent = hospital.name;
+      hospitalSelect.appendChild(option);
+    });
+
+  } catch (error) {
+    hospitalSelect.innerHTML = `<option value="">Backend not connected</option>`;
+  }
+}
+
+loadHospitals();
+function openShortestRoute() {
+  const bookingData = JSON.parse(localStorage.getItem("ambulanceBooking"));
+
+  if (!bookingData) {
+    alert("No booking found");
+    return;
+  }
+
+  const pickup = encodeURIComponent(bookingData.address);
+  const hospital = encodeURIComponent(bookingData.hospitalName);
+
+  const url = `https://www.google.com/maps/dir/?api=1&origin=${pickup}&destination=${hospital}&travelmode=driving`;
+
+  window.open(url, "_blank");
+}
+    function bookAmbulance() {
+        function startLiveStatus() {
+
+  const statusSteps = [
+    "Request Received",
+    "Ambulance Assigned",
+    "Ambulance On The Way",
+    "Reached Patient Location"
+  ];
+
+  let index = 0;
+
+  const statusBox = document.getElementById("liveStatus");
+
+  statusBox.innerText = statusSteps[index];
+
+  const interval = setInterval(() => {
+
+    index++;
+
+    if (index < statusSteps.length) {
+      statusBox.innerText = statusSteps[index];
+    } else {
+      clearInterval(interval);
+    }
+
+  }, 3000);
+
+}
+      const patientName = document.getElementById("patientName").value;
+      const phone = document.getElementById("phone").value;
+      const emergencyType = document.getElementById("emergencyType").value;
+      const address = document.getElementById("address").value;
+      const hospitalName = document.getElementById("hospitalName").value;
+      const priority =document.getElementById("priority").value;
+
+      if (patientName === "" || phone === "" || emergencyType === "" || address === "") {
+        alert("Please fill all required details");
+        return;
+      }
+
+      const booking = {
+        patientName,
+        phone,
+        emergencyType,
+        address,
+        priority,
+        hospitalName,
+       ambulanceNo: getRandomAmbulanceNo(),
+driverName: getRandomDriverName(),
+estimatedTime: getRandomEstimatedTime(),
+       ambulanceStatus: getRandomAmbulanceStatus(),
+      };
+
+      localStorage.setItem("ambulanceBooking", JSON.stringify(booking));
+
+      document.getElementById("successBox").style.display = "block";
+      document.getElementById("successBox").innerHTML = `
+        <h3>✅ Ambulance Booked Successfully</h3>
+        <p><b>Patient:</b> ${booking.patientName}</p>
+        <p><b>Emergency:</b> ${booking.emergencyType}</p>
+        <p><b>Pickup:</b> ${booking.address}</p>
+        <p><b>Hospital:</b> ${booking.hospitalName || "Nearest Available Hospital"}</p>
+        <p><b>Ambulance No:</b> ${booking.ambulanceNo}</p>
+        <p><b>Driver:</b> ${booking.driverName}</p>
+        <p><b>Estimated Arrival:</b> ${booking.estimatedTime}</p>
+        <p><b>Ambulance Status:</b> ${booking.ambulanceStatus}</p>
+        <p><b>Live Status:</b> <span id="liveStatus">Starting...</span></p>
+        <button onclick="openShortestRoute()">📍 Show Shortest Route</button>
+      `;
+      startLiveStatus();
+    }
+  </script>
+
+</body>
+</html>
