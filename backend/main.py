@@ -1,14 +1,19 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
+import os
 
 from database import SessionLocal, Hospital, Patient, Doctor, Appointment, Billing
 
-app = FastAPI()
+ENV = os.getenv("ENV", "development")
 
+if ENV == "production":
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+else:
+    app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -44,13 +49,24 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# ================== ADMIN API KEY PROTECTION ==================
+# Database-changing routes require x-api-key header
+# Local development key: dev-secret-key
+# Production key: Set ADMIN_API_KEY in Render Environment Variables
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "dev-secret-key")
+
+def verify_admin_key(x_api_key: str = Header(None)):
+    """Verify admin API key from request header"""
+    if x_api_key != ADMIN_API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return True
+
 # ================== PYDANTIC MODELS ==================
 
 # Hospital Update Model
 class HospitalUpdate(BaseModel):
-    icu_beds: int
-    general_beds: int
-    doctors_available: int
+    beds: int
+    doctors: int
     ambulances: int
 
 # Patient Model
@@ -287,8 +303,8 @@ def get_patients(db: Session = Depends(get_db)):
     return patients
 
 @app.post("/patients", response_model=PatientResponse)
-def create_patient(patient: PatientCreate, db: Session = Depends(get_db)):
-    """Create a new patient"""
+def create_patient(patient: PatientCreate, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
+    """Create a new patient - Requires x-api-key header"""
     new_patient = Patient(name=patient.name, age=patient.age)
     db.add(new_patient)
     db.commit()
@@ -296,8 +312,8 @@ def create_patient(patient: PatientCreate, db: Session = Depends(get_db)):
     return new_patient
 
 @app.delete("/patients/{patient_id}")
-def delete_patient(patient_id: int, db: Session = Depends(get_db)):
-    """Delete a patient by ID"""
+def delete_patient(patient_id: int, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
+    """Delete a patient by ID - Requires x-api-key header"""
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
     if not patient:
         return {"message": "Patient not found"}
@@ -313,8 +329,8 @@ def get_doctors(db: Session = Depends(get_db)):
     return doctors
 
 @app.post("/doctors", response_model=DoctorResponse)
-def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db)):
-    """Create a new doctor"""
+def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
+    """Create a new doctor - Requires x-api-key header"""
     new_doctor = Doctor(name=doctor.name, specialization=doctor.specialization)
     db.add(new_doctor)
     db.commit()
@@ -322,8 +338,8 @@ def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db)):
     return new_doctor
 
 @app.delete("/doctors/{doctor_id}")
-def delete_doctor(doctor_id: int, db: Session = Depends(get_db)):
-    """Delete a doctor by ID"""
+def delete_doctor(doctor_id: int, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
+    """Delete a doctor by ID - Requires x-api-key header"""
     doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
     if not doctor:
         return {"message": "Doctor not found"}
@@ -339,8 +355,8 @@ def get_appointments(db: Session = Depends(get_db)):
     return appointments
 
 @app.post("/appointments", response_model=AppointmentResponse)
-def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db)):
-    """Create a new appointment"""
+def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
+    """Create a new appointment - Requires x-api-key header"""
     new_appointment = Appointment(
         patient=appointment.patient,
         doctor=appointment.doctor,
@@ -354,8 +370,8 @@ def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get
     return new_appointment
 
 @app.delete("/appointments/{appointment_id}")
-def delete_appointment(appointment_id: int, db: Session = Depends(get_db)):
-    """Delete an appointment by ID"""
+def delete_appointment(appointment_id: int, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
+    """Delete an appointment by ID - Requires x-api-key header"""
     appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
     if not appointment:
         return {"message": "Appointment not found"}
@@ -371,8 +387,8 @@ def get_billing(db: Session = Depends(get_db)):
     return billing
 
 @app.post("/billing", response_model=BillingResponse)
-def create_billing(bill: BillingCreate, db: Session = Depends(get_db)):
-    """Create a new billing record"""
+def create_billing(bill: BillingCreate, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
+    """Create a new billing record - Requires x-api-key header"""
     new_billing = Billing(patient=bill.patient, amount=bill.amount)
     db.add(new_billing)
     db.commit()
@@ -380,8 +396,8 @@ def create_billing(bill: BillingCreate, db: Session = Depends(get_db)):
     return new_billing
 
 @app.delete("/billing/{billing_id}")
-def delete_billing(billing_id: int, db: Session = Depends(get_db)):
-    """Delete a billing record by ID"""
+def delete_billing(billing_id: int, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
+    """Delete a billing record by ID - Requires x-api-key header"""
     billing = db.query(Billing).filter(Billing.id == billing_id).first()
     if not billing:
         return {"message": "Billing record not found"}
@@ -397,8 +413,8 @@ def get_patient_appointments(db: Session = Depends(get_db)):
     return appointments
 
 @app.post("/patient/book-appointment")
-def book_patient_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db)):
-    """Book a new appointment for patient"""
+def book_patient_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
+    """Book a new appointment for patient - Requires x-api-key header"""
     try:
         new_appointment = Appointment(
             patient=appointment.patient,
@@ -1222,29 +1238,29 @@ def get_hospitals():
 
 # ================== UPDATE HOSPITAL ==================
 @app.put("/hospitals/{hospital_id}")
-async def update_hospital(hospital_id: int, data: HospitalUpdate, db: Session = Depends(get_db)):
-    """Update a hospital by ID"""
+async def update_hospital(hospital_id: int, data: HospitalUpdate, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
+    """Update a hospital by ID - Requires x-api-key header"""
     hospital = db.query(Hospital).filter(Hospital.id == hospital_id).first()
 
     if not hospital:
-        return {"error": "Hospital not found"}
+        raise HTTPException(status_code=404, detail="Hospital not found")
 
-    hospital.icu_beds = data.icu_beds
-    hospital.general_beds = data.general_beds
-    hospital.doctors_available = data.doctors_available
+    hospital.beds = data.beds
+    hospital.doctors = data.doctors
     hospital.ambulances = data.ambulances
 
     db.commit()
+    db.refresh(hospital)
 
     # send live update to frontend
     await manager.broadcast("hospital_updated")
 
-    return {"message": "Hospital updated successfully"}
+    return {"success": True, "message": "Hospital updated successfully"}
 
 # ================== BROADCAST HOSPITAL UPDATE ==================
 @app.post("/broadcast/hospital-update")
-async def broadcast_hospital_update(update: BroadcastUpdate, db: Session = Depends(get_db)):
-    """Update hospital and broadcast to WebSocket clients"""
+async def broadcast_hospital_update(update: BroadcastUpdate, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
+    """Update hospital and broadcast to WebSocket clients - Requires x-api-key header"""
     try:
         hospital = db.query(Hospital).filter(Hospital.id == update.hospital_id).first()
         
