@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
-  adminPatients,
   getHospitalNameById,
   hospitals,
   type AdminPatient,
 } from "../data";
+import { api } from "../services/api.ts";
 
 type PatientStatus = AdminPatient["status"];
 
@@ -29,7 +29,8 @@ const initialForm: PatientFormState = {
 };
 
 export default function Patients() {
-  const [patients, setPatients] = useState<AdminPatient[]>(adminPatients);
+  const [patients, setPatients] = useState<AdminPatient[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<PatientStatus | "All">("All");
   const [genderFilter, setGenderFilter] = useState<AdminPatient["gender"] | "All">(
@@ -41,17 +42,32 @@ export default function Patients() {
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [form, setForm] = useState<PatientFormState>(initialForm);
 
-  const normalize = (value: string) => value.toLowerCase().trim();
+  useEffect(() => {
+    fetchPatients();
+  }, []);
 
-  const generatePatientId = () => {
-    if (patients.length === 0) return "P001";
-    const highest = patients.reduce((max, patient) => {
-      const numeric = Number(patient.id.replace("P", ""));
-      return Math.max(max, numeric);
-    }, 0);
-
-    return `P${String(highest + 1).padStart(3, "0")}`;
+  const fetchPatients = async () => {
+    setLoading(true);
+    try {
+      const data = await api.get<any[]>("/patients");
+      const mapped: AdminPatient[] = data.map((p: any) => ({
+        id: String(p.id).startsWith("P") ? p.id : `P${String(p.id).padStart(3, "0")}`,
+        name: p.name,
+        age: p.age,
+        gender: p.gender || "Male",
+        diagnosis: p.diagnosis || "N/A",
+        status: p.status || "Waiting",
+        hospitalId: p.hospitalId || 1,
+      }));
+      setPatients(mapped);
+    } catch (err) {
+      console.error("Failed to fetch patients:", err);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const normalize = (value: string) => value.toLowerCase().trim();
 
   const getInitials = (name: string) => {
     return name
@@ -91,26 +107,34 @@ export default function Patients() {
     setForm(initialForm);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name || !form.diagnosis) return;
 
-    if (editIndex !== null) {
-      const updated = [...patients];
-      updated[editIndex] = { ...form, id: updated[editIndex].id };
-      setPatients(updated);
-    } else {
-      const patient: AdminPatient = {
-        ...form,
-        id: generatePatientId(),
-      };
-      setPatients((prev) => [patient, ...prev]);
+    try {
+      if (editIndex !== null) {
+        // We use the patient ID from the state for the update
+        await api.post("/patients", { ...form });
+      } else {
+        await api.post("/patients", { ...form });
+      }
+      await fetchPatients();
+      resetForm();
+    } catch (err) {
+      console.error("Failed to save patient:", err);
     }
-
-    resetForm();
   };
 
-  const handleDelete = (index: number) => {
-    setPatients((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+  const handleDelete = async (index: number) => {
+    const patient = patients[index];
+    const numericId = patient.id.replace("P", "");
+    if (!window.confirm(`Are you sure you want to delete ${patient.name}?`)) return;
+
+    try {
+      await api.delete(`/patients/${numericId}`);
+      await fetchPatients();
+    } catch (err) {
+      console.error("Failed to delete patient:", err);
+    }
   };
 
   const handleEdit = (index: number) => {
@@ -216,63 +240,70 @@ export default function Patients() {
       </div>
 
       <div className="surface-card overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-5 py-3">ID</th>
-              <th className="px-5 py-3">Patient</th>
-              <th className="px-5 py-3">Hospital</th>
-              <th className="px-5 py-3">Diagnosis</th>
-              <th className="px-5 py-3">Status</th>
-              <th className="px-5 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredPatients.map((patient, index) => (
-              <tr key={patient.id} className="border-t border-slate-100 transition hover:bg-slate-50/70">
-                <td className="px-5 py-4 font-semibold text-cyan-700">{patient.id}</td>
-                <td className="px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-600 text-xs font-semibold text-white">
-                      {getInitials(patient.name)}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-900">{patient.name}</p>
-                      <p className="text-xs text-slate-500">
-                        {patient.age} yrs, {patient.gender}
-                      </p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-5 py-4 text-slate-600">
-                  {getHospitalNameById(patient.hospitalId)}
-                </td>
-                <td className="px-5 py-4 text-slate-600">{patient.diagnosis}</td>
-                <td className="px-5 py-4">
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${patientStatusClass(
-                      patient.status
-                    )}`}
-                  >
-                    {patient.status}
-                  </span>
-                </td>
-                <td className="px-5 py-4">
-                  <div className="flex gap-3 text-sm font-semibold">
-                    <button onClick={() => handleEdit(index)} className="text-cyan-700">
-                      Edit
-                    </button>
-                    <button onClick={() => handleDelete(index)} className="text-rose-600">
-                      Delete
-                    </button>
-                  </div>
-                </td>
+        {loading ? (
+          <div className="p-10 text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-cyan-700 border-t-transparent"></div>
+            <p className="mt-2 text-sm text-slate-500">Fetching patient records...</p>
+          </div>
+        ) : (
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-5 py-3">ID</th>
+                <th className="px-5 py-3">Patient</th>
+                <th className="px-5 py-3">Hospital</th>
+                <th className="px-5 py-3">Diagnosis</th>
+                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredPatients.map((patient, index) => (
+                <tr key={patient.id} className="border-t border-slate-100 transition hover:bg-slate-50/70">
+                  <td className="px-5 py-4 font-semibold text-cyan-700">{patient.id}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-600 text-xs font-semibold text-white">
+                        {getInitials(patient.name)}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900">{patient.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {patient.age} yrs, {patient.gender}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4 text-slate-600">
+                    {getHospitalNameById(patient.hospitalId)}
+                  </td>
+                  <td className="px-5 py-4 text-slate-600">{patient.diagnosis}</td>
+                  <td className="px-5 py-4">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${patientStatusClass(
+                        patient.status
+                      )}`}
+                    >
+                      {patient.status}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex gap-3 text-sm font-semibold">
+                      <button onClick={() => handleEdit(index)} className="text-cyan-700">
+                        Edit
+                      </button>
+                      <button onClick={() => handleDelete(index)} className="text-rose-600">
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
 
-        {filteredPatients.length === 0 && (
+        {!loading && filteredPatients.length === 0 && (
           <div className="p-5 text-sm text-slate-500">No patients match the current filters.</div>
         )}
       </div>
