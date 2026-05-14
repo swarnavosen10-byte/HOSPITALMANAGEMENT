@@ -1,17 +1,45 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { getDoctorsByHospitalAndDepartment, getHospitalById } from "../data";
+import { useEffect, useState } from "react";
+import { getHospitalById, type Doctor } from "../data";
+import { api } from "../services/api.ts";
 
 export default function DoctorList() {
   const { id, department } = useParams();
   const navigate = useNavigate();
+  const [deptDoctors, setDeptDoctors] = useState<Doctor[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const hospitalId = Number(id);
   const decodedDepartment = decodeURIComponent(department ?? "");
   const hospital = getHospitalById(hospitalId);
-  const deptDoctors = getDoctorsByHospitalAndDepartment(
-    hospitalId,
-    decodedDepartment
-  );
+
+  useEffect(() => {
+    async function fetchDoctors() {
+      setLoading(true);
+      try {
+        const data = await api.get<any[]>("/doctors");
+        const mapped: Doctor[] = data
+          .filter((d: any) => d.hospitalId === hospitalId && (d.department === decodedDepartment || d.specialization === decodedDepartment))
+          .map((d: any) => ({
+            id: d.id,
+            hospitalId: d.hospitalId,
+            department: d.department || d.specialization || "General",
+            name: d.name,
+            experience: d.experience || 0,
+            availability: d.availability || "Available",
+            fees: d.fees || 500,
+            phone: d.phone || "N/A",
+            email: d.email || "N/A",
+          }));
+        setDeptDoctors(mapped);
+      } catch (err) {
+        console.error("Failed to fetch doctors:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchDoctors();
+  }, [hospitalId, decodedDepartment]);
 
   if (!hospital) {
     return <div className="p-6">Hospital not found.</div>;
@@ -26,7 +54,14 @@ export default function DoctorList() {
       </div>
 
       <div className="stagger space-y-4">
-        {deptDoctors.map((doc) => (
+        {loading && (
+          <div className="p-10 text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-cyan-700 border-t-transparent"></div>
+            <p className="mt-2 text-sm text-slate-500">Finding doctors...</p>
+          </div>
+        )}
+
+        {!loading && deptDoctors.map((doc) => (
         <div
           key={doc.id}
           className="surface-card p-5"
@@ -56,7 +91,7 @@ export default function DoctorList() {
         ))}
       </div>
 
-      {deptDoctors.length === 0 && (
+      {!loading && deptDoctors.length === 0 && (
         <p className="surface-card p-5 text-slate-600">No doctors available for this department.</p>
       )}
     </div>

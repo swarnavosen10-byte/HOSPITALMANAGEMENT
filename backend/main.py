@@ -73,11 +73,19 @@ class HospitalUpdate(BaseModel):
 class PatientCreate(BaseModel):
     name: str
     age: int
+    gender: Optional[str] = "Male"
+    diagnosis: Optional[str] = "N/A"
+    status: Optional[str] = "Waiting"
+    hospitalId: Optional[int] = 1
 
 class PatientResponse(BaseModel):
     id: int
     name: str
     age: int
+    gender: Optional[str] = None
+    diagnosis: Optional[str] = None
+    status: Optional[str] = None
+    hospitalId: Optional[int] = None
     
     class Config:
         from_attributes = True
@@ -86,30 +94,52 @@ class PatientResponse(BaseModel):
 class DoctorCreate(BaseModel):
     name: str
     specialization: str
+    hospitalId: Optional[int] = 1
+    department: Optional[str] = None
+    experience: Optional[int] = 0
+    availability: Optional[str] = "Available"
+    fees: Optional[int] = 500
+    phone: Optional[str] = "N/A"
+    email: Optional[str] = "N/A"
 
 class DoctorResponse(BaseModel):
     id: int
     name: str
     specialization: str
+    hospitalId: Optional[int] = None
+    department: Optional[str] = None
+    experience: Optional[int] = None
+    availability: Optional[str] = None
+    fees: Optional[int] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
     
     class Config:
         from_attributes = True
 
 # Appointment Model
 class AppointmentCreate(BaseModel):
-    patient: str
-    doctor: str
+    patientId: str
+    doctorId: int
+    hospitalId: int
     date: Optional[str] = None
     time: Optional[str] = None
-    status: Optional[str] = "scheduled"
+    type: Optional[str] = "Consultation"
+    mode: Optional[str] = "In-person"
+    status: Optional[str] = "Scheduled"
+    notes: Optional[str] = ""
 
 class AppointmentResponse(BaseModel):
     id: int
-    patient: str
-    doctor: str
+    patientId: str
+    doctorId: int
+    hospitalId: int
     date: Optional[str] = None
     time: Optional[str] = None
+    type: Optional[str] = None
+    mode: Optional[str] = None
     status: Optional[str] = None
+    notes: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -305,7 +335,14 @@ def get_patients(db: Session = Depends(get_db)):
 @app.post("/patients", response_model=PatientResponse)
 def create_patient(patient: PatientCreate, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
     """Create a new patient - Requires x-api-key header"""
-    new_patient = Patient(name=patient.name, age=patient.age)
+    new_patient = Patient(
+        name=patient.name, 
+        age=patient.age,
+        gender=patient.gender,
+        diagnosis=patient.diagnosis,
+        status=patient.status,
+        hospitalId=patient.hospitalId
+    )
     db.add(new_patient)
     db.commit()
     db.refresh(new_patient)
@@ -331,7 +368,17 @@ def get_doctors(db: Session = Depends(get_db)):
 @app.post("/doctors", response_model=DoctorResponse)
 def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
     """Create a new doctor - Requires x-api-key header"""
-    new_doctor = Doctor(name=doctor.name, specialization=doctor.specialization)
+    new_doctor = Doctor(
+        name=doctor.name, 
+        specialization=doctor.specialization,
+        hospitalId=doctor.hospitalId,
+        department=doctor.department,
+        experience=doctor.experience,
+        availability=doctor.availability,
+        fees=doctor.fees,
+        phone=doctor.phone,
+        email=doctor.email
+    )
     db.add(new_doctor)
     db.commit()
     db.refresh(new_doctor)
@@ -358,11 +405,15 @@ def get_appointments(db: Session = Depends(get_db)):
 def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
     """Create a new appointment - Requires x-api-key header"""
     new_appointment = Appointment(
-        patient=appointment.patient,
-        doctor=appointment.doctor,
+        patientId=appointment.patientId,
+        doctorId=appointment.doctorId,
+        hospitalId=appointment.hospitalId,
         date=appointment.date,
         time=appointment.time,
-        status=appointment.status
+        type=appointment.type,
+        mode=appointment.mode,
+        status=appointment.status,
+        notes=appointment.notes
     )
     db.add(new_appointment)
     db.commit()
