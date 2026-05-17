@@ -10,17 +10,20 @@ export type PatientAppointment = {
   hospitalId: number;
   date: string;
   time: string;
-  status: "Scheduled" | "Completed" | "Cancelled";
+  status: "Scheduled" | "Completed" | "Cancelled" | "Pending Approval" | "Approved" | "In Progress" | "Rejected" | "No-show";
   type: string;
   mode: string;
   notes: string;
   doctorName?: string;
   hospitalName?: string;
   department?: string;
+  completionOrCancellationDate?: string;
 };
 
 export default function MyAppointments() {
   const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
+  const [pastAppointments, setPastAppointments] = useState<PatientAppointment[]>([]);
+  const [activeTab, setActiveTab] = useState<"active" | "past">("active");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,29 +36,35 @@ export default function MyAppointments() {
       const user = getUser();
       const patientId = user?.id ?? 999;
 
-      // Fetch both appointments and doctors to resolve names
-      const [appointmentsData, doctorsData] = await Promise.all([
+      const [appointmentsData, pastAppointmentsData, doctorsData] = await Promise.all([
         api.get<any[]>("/appointments"),
-        api.get<any[]>("/doctors").catch(() => []) // Fallback to empty if fails
+        api.get<any[]>("/past_appointments"),
+        api.get<any[]>("/doctors").catch(() => [])
       ]);
 
-      // Filter appointments for this patient
-      const myAppointments = appointmentsData
+      const mapAppointment = (apt: any) => {
+        const doctor = doctorsData.find((d: any) => d.id === apt.doctorId) || 
+                       mockDoctors.find((d) => d.id === apt.doctorId);
+        const hospital = hospitals.find((h) => h.id === apt.hospitalId);
+
+        return {
+          ...apt,
+          doctorName: apt.doctorName ?? doctor?.name ?? `Dr. (ID: ${apt.doctorId})`,
+          hospitalName: hospital?.name || `Hospital (ID: ${apt.hospitalId})`,
+          department: doctor?.department || doctor?.specialization || "General"
+        };
+      };
+
+      const myActive = appointmentsData
         .filter((apt: any) => Number(apt.patientId) === Number(patientId))
-        .map((apt: any) => {
-          const doctor = doctorsData.find((d: any) => d.id === apt.doctorId) || 
-                         mockDoctors.find((d) => d.id === apt.doctorId);
-          const hospital = hospitals.find((h) => h.id === apt.hospitalId);
+        .map(mapAppointment);
 
-          return {
-            ...apt,
-            doctorName: doctor?.name || `Dr. (ID: ${apt.doctorId})`,
-            hospitalName: hospital?.name || `Hospital (ID: ${apt.hospitalId})`,
-            department: doctor?.department || doctor?.specialization || "General"
-          };
-        });
+      const myPast = pastAppointmentsData
+        .filter((apt: any) => Number(apt.patientId) === Number(patientId))
+        .map(mapAppointment);
 
-      setAppointments(myAppointments);
+      setAppointments(myActive);
+      setPastAppointments(myPast);
     } catch (err) {
       console.error("Failed to fetch appointments:", err);
     } finally {
@@ -63,19 +72,19 @@ export default function MyAppointments() {
     }
   };
 
-  const upcomingAppointments = useMemo(
-    () => appointments.filter((appointment) => appointment.status === "Scheduled"),
+  const upcomingCount = useMemo(
+    () => appointments.filter((apt) => ["Scheduled", "Approved", "Pending Approval"].includes(apt.status)).length,
     [appointments]
   );
 
   const completedCount = useMemo(
-    () => appointments.filter((appointment) => appointment.status === "Completed").length,
-    [appointments]
+    () => pastAppointments.filter((apt) => apt.status === "Completed").length,
+    [pastAppointments]
   );
 
   const cancelledCount = useMemo(
-    () => appointments.filter((appointment) => appointment.status === "Cancelled").length,
-    [appointments]
+    () => pastAppointments.filter((apt) => ["Cancelled", "Rejected"].includes(apt.status)).length,
+    [pastAppointments]
   );
 
   const updateStatus = async (
@@ -91,9 +100,9 @@ export default function MyAppointments() {
   };
 
   const statusStyle = (status: string) => {
-    if (status === "Scheduled") return "bg-blue-100 text-blue-600";
+    if (["Scheduled", "Approved"].includes(status)) return "bg-blue-100 text-blue-600";
     if (status === "Completed") return "bg-green-100 text-green-600";
-    if (status === "Cancelled") return "bg-red-100 text-red-600";
+    if (["Cancelled", "Rejected"].includes(status)) return "bg-red-100 text-red-600";
     return "bg-gray-100 text-gray-600";
   };
 
@@ -104,19 +113,44 @@ export default function MyAppointments() {
         <h2 className="mt-2 text-3xl font-extrabold text-slate-900">My Appointments</h2>
       </div>
 
+      {/* Dynamic Summary Cards */}
       <div className="stagger grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="surface-card p-4">
-          <p className="text-sm text-slate-500">Upcoming</p>
-          <p className="text-2xl font-bold text-slate-900">{upcomingAppointments.length}</p>
+          <p className="text-sm text-slate-500">Upcoming Active</p>
+          <p className="text-2xl font-bold text-slate-900">{upcomingCount}</p>
         </div>
         <div className="surface-card p-4">
-          <p className="text-sm text-slate-500">Completed</p>
+          <p className="text-sm text-slate-500">Completed Sessions</p>
           <p className="text-2xl font-bold text-slate-900">{completedCount}</p>
         </div>
         <div className="surface-card p-4">
-          <p className="text-sm text-slate-500">Cancelled</p>
+          <p className="text-sm text-slate-500">Cancelled / Rejected</p>
           <p className="text-2xl font-bold text-slate-900">{cancelledCount}</p>
         </div>
+      </div>
+
+      {/* Premium Tab Selector */}
+      <div className="flex border-b border-slate-200">
+        <button
+          onClick={() => setActiveTab("active")}
+          className={`px-6 py-3 text-sm font-bold tracking-tight border-b-2 transition ${
+            activeTab === "active"
+              ? "border-cyan-600 text-cyan-700"
+              : "border-transparent text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          Upcoming Bookings ({appointments.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("past")}
+          className={`px-6 py-3 text-sm font-bold tracking-tight border-b-2 transition ${
+            activeTab === "past"
+              ? "border-cyan-600 text-cyan-700"
+              : "border-transparent text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          Past Consultations ({pastAppointments.length})
+        </button>
       </div>
 
       <div className="stagger space-y-4">
@@ -125,12 +159,9 @@ export default function MyAppointments() {
             <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-cyan-700 border-t-transparent"></div>
             <p className="mt-2 text-sm text-slate-500">Loading your appointments...</p>
           </div>
-        ) : (
+        ) : activeTab === "active" ? (
           appointments.map((appointment) => (
-            <div
-              key={appointment.id}
-              className="surface-card p-5"
-            >
+            <div key={appointment.id} className="surface-card p-5">
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900">{appointment.doctorName}</h3>
@@ -148,7 +179,7 @@ export default function MyAppointments() {
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  {appointment.status === "Scheduled" && (
+                  {["Scheduled", "Pending Approval", "Approved"].includes(appointment.status) && (
                     <button
                       onClick={() => updateStatus(appointment.id, "Cancelled")}
                       className="text-sm font-semibold text-rose-600 hover:text-rose-700 transition"
@@ -163,17 +194,50 @@ export default function MyAppointments() {
               )}
             </div>
           ))
+        ) : (
+          pastAppointments.map((appointment) => (
+            <div key={appointment.id} className="surface-card p-5 bg-slate-50/50">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">{appointment.doctorName}</h3>
+                  <p className="text-slate-600">{appointment.department}</p>
+                  <p className="text-slate-700 font-medium">{appointment.hospitalName}</p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusStyle(appointment.status)}`}>
+                  {appointment.status}
+                </span>
+              </div>
+
+              <div className="flex justify-between mt-4 items-center">
+                <div className="text-sm text-slate-600">
+                  <span className="font-semibold text-slate-900">{appointment.date}</span> at <span className="font-semibold text-slate-900">{appointment.time}</span>
+                </div>
+                <div className="text-xs text-slate-500 font-medium">
+                  Resolved on: {appointment.completionOrCancellationDate ?? "Archived"}
+                </div>
+              </div>
+              {appointment.notes && (
+                <p className="mt-3 text-xs text-slate-500 italic border-t pt-2">Resolution Note: {appointment.notes}</p>
+              )}
+            </div>
+          ))
         )}
 
-        {!loading && appointments.length === 0 && (
+        {!loading && activeTab === "active" && appointments.length === 0 && (
           <div className="surface-card p-10 text-center">
-            <p className="text-slate-500">You don't have any appointments yet.</p>
+            <p className="text-slate-500">You don't have any upcoming appointments yet.</p>
             <button 
               onClick={() => window.location.href = '/patient-dashboard'}
               className="mt-4 text-cyan-700 font-semibold hover:underline"
             >
               Book your first appointment
             </button>
+          </div>
+        )}
+
+        {!loading && activeTab === "past" && pastAppointments.length === 0 && (
+          <div className="surface-card p-10 text-center">
+            <p className="text-slate-500">No past consultations found in your history.</p>
           </div>
         )}
       </div>

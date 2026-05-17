@@ -49,9 +49,11 @@ class Appointment(Base):
     __tablename__ = "appointments"
 
     id = Column(Integer, primary_key=True, index=True)
-    patientId = Column("patientId", Integer)
-    doctorId = Column("doctorId", Integer)
-    hospitalId = Column("hospitalId", Integer)
+    patientId = Column("patientId", Integer, nullable=True)
+    doctorId = Column("doctorId", Integer, nullable=True)
+    hospitalId = Column("hospitalId", Integer, nullable=True)
+    patientName = Column("patientName", String, nullable=True)
+    doctorName = Column("doctorName", String, nullable=True)
     date = Column(String, nullable=True)
     time = Column(String, nullable=True)
     type = Column(String, nullable=True)
@@ -87,9 +89,11 @@ class PastAppointment(Base):
     __tablename__ = "past_appointments"
 
     id = Column(Integer, primary_key=True, index=True)
-    patientId = Column("patientId", Integer)
-    doctorId = Column("doctorId", Integer)
-    hospitalId = Column("hospitalId", Integer)
+    patientId = Column("patientId", Integer, nullable=True)
+    doctorId = Column("doctorId", Integer, nullable=True)
+    hospitalId = Column("hospitalId", Integer, nullable=True)
+    patientName = Column("patientName", String, nullable=True)
+    doctorName = Column("doctorName", String, nullable=True)
     date = Column(String, nullable=True)
     time = Column(String, nullable=True)
     type = Column(String, nullable=True)

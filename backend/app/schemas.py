@@ -59,9 +59,11 @@ class DoctorResponse(BaseModel):
 
 # Appointment Model
 class AppointmentCreate(BaseModel):
-    patientId: int
-    doctorId: int
-    hospitalId: int
+    patientId: Optional[int] = None
+    doctorId: Optional[int] = None
+    hospitalId: Optional[int] = None
+    patientName: Optional[str] = None
+    doctorName: Optional[str] = None
     date: Optional[str] = None
     time: Optional[str] = None
     type: Optional[str] = "Consultation"
@@ -82,6 +84,24 @@ class AppointmentResponse(BaseModel):
     notes: Optional[str] = None
     patientName: Optional[str] = None
     doctorName: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+class PastAppointmentResponse(BaseModel):
+    id: int
+    patientId: Optional[int] = None
+    doctorId: Optional[int] = None
+    hospitalId: Optional[int] = None
+    patientName: Optional[str] = None
+    doctorName: Optional[str] = None
+    date: Optional[str] = None
+    time: Optional[str] = None
+    type: Optional[str] = None
+    mode: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    completionOrCancellationDate: Optional[str] = None
     
     class Config:
         from_attributes = True

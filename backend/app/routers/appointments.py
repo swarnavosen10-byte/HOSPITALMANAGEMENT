@@ -3,23 +3,27 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.dependencies import get_db, verify_admin_key
 from app.models import Appointment, Patient, Doctor, Billing
-from app.schemas import AppointmentCreate, AppointmentResponse, AppointmentUpdate
+from app.schemas import AppointmentCreate, AppointmentResponse, AppointmentUpdate, PastAppointmentResponse
 
 router = APIRouter()
 
 def resolve_appointment(a, db: Session):
     from app.models import User, Doctor
-    patient_name = "Guest Patient"
-    if a.patientId:
+    patient_name = a.patientName
+    if not patient_name and a.patientId:
         user = db.query(User).filter(User.id == a.patientId).first()
         if user:
             patient_name = user.displayName
+    if not patient_name:
+        patient_name = "Guest Patient"
     
-    doctor_name = f"Dr. (ID: {a.doctorId})"
-    if a.doctorId:
+    doctor_name = a.doctorName
+    if not doctor_name and a.doctorId:
         doc = db.query(Doctor).filter(Doctor.id == a.doctorId).first()
         if doc:
             doctor_name = doc.name
+    if not doctor_name:
+        doctor_name = f"Dr. (ID: {a.doctorId})"
             
     return AppointmentResponse(
         id=a.id,
@@ -45,10 +49,30 @@ def get_appointments(db: Session = Depends(get_db)):
 @router.post("/appointments", response_model=AppointmentResponse)
 def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
     """Create a new appointment - Requires x-api-key header"""
+    from app.models import User, Doctor
+    
+    patient_name = appointment.patientName
+    if not patient_name and appointment.patientId:
+        user = db.query(User).filter(User.id == appointment.patientId).first()
+        if user:
+            patient_name = user.displayName
+    if not patient_name:
+        patient_name = "Guest Patient"
+        
+    doctor_name = appointment.doctorName
+    if not doctor_name and appointment.doctorId:
+        doc = db.query(Doctor).filter(Doctor.id == appointment.doctorId).first()
+        if doc:
+            doctor_name = doc.name
+    if not doctor_name:
+        doctor_name = f"Dr. (ID: {appointment.doctorId})"
+
     new_appointment = Appointment(
         patientId=appointment.patientId,
         doctorId=appointment.doctorId,
         hospitalId=appointment.hospitalId,
+        patientName=patient_name,
+        doctorName=doctor_name,
         date=appointment.date,
         time=appointment.time,
         type=appointment.type,
@@ -74,26 +98,102 @@ def delete_appointment(appointment_id: int, db: Session = Depends(get_db), _: bo
 @router.put("/appointments/{appointment_id}", response_model=AppointmentResponse)
 def update_appointment(appointment_id: int, request: AppointmentUpdate, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
     """Update an appointment by ID - Requires x-api-key header"""
+    from app.models import PastAppointment, User, Doctor
+    import datetime
+    
     appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
     
-    if request.date is not None:
-        appointment.date = request.date
-    if request.time is not None:
-        appointment.time = request.time
-    if request.type is not None:
-        appointment.type = request.type
-    if request.mode is not None:
-        appointment.mode = request.mode
-    if request.status is not None:
-        appointment.status = request.status
-    if request.notes is not None:
-        appointment.notes = request.notes
+    # Resolve names if null in database
+    patient_name = appointment.patientName
+    if not patient_name and appointment.patientId:
+        user = db.query(User).filter(User.id == appointment.patientId).first()
+        if user:
+            patient_name = user.displayName
+    if not patient_name:
+        patient_name = "Guest Patient"
         
-    db.commit()
-    db.refresh(appointment)
-    return resolve_appointment(appointment, db)
+    doctor_name = appointment.doctorName
+    if not doctor_name and appointment.doctorId:
+        doc = db.query(Doctor).filter(Doctor.id == appointment.doctorId).first()
+        if doc:
+            doctor_name = doc.name
+    if not doctor_name:
+        doctor_name = f"Dr. (ID: {appointment.doctorId})"
+
+    # Update temporary fields
+    date = request.date if request.date is not None else appointment.date
+    time = request.time if request.time is not None else appointment.time
+    type_val = request.type if request.type is not None else appointment.type
+    mode = request.mode if request.mode is not None else appointment.mode
+    status = request.status if request.status is not None else appointment.status
+    notes = request.notes if request.notes is not None else appointment.notes
+
+    if status in ["Completed", "Cancelled", "Rejected"]:
+        # Move to past_appointments
+        current_date_str = datetime.date.today().strftime("%Y-%m-%d")
+        past_apt = PastAppointment(
+            patientId=appointment.patientId,
+            doctorId=appointment.doctorId,
+            hospitalId=appointment.hospitalId,
+            patientName=patient_name,
+            doctorName=doctor_name,
+            date=date,
+            time=time,
+            type=type_val,
+            mode=mode,
+            status=status,
+            notes=notes,
+            completionOrCancellationDate=current_date_str
+        )
+        db.add(past_apt)
+        db.delete(appointment)
+        db.commit()
+        
+        # Return resolved past appointment schema
+        return AppointmentResponse(
+            id=appointment_id,
+            patientId=appointment.patientId,
+            doctorId=appointment.doctorId,
+            hospitalId=appointment.hospitalId,
+            date=date,
+            time=time,
+            type=type_val,
+            mode=mode,
+            status=status,
+            notes=notes,
+            patientName=patient_name,
+            doctorName=doctor_name
+        )
+    else:
+        # Just update in place
+        if request.date is not None:
+            appointment.date = request.date
+        if request.time is not None:
+            appointment.time = request.time
+        if request.type is not None:
+            appointment.type = request.type
+        if request.mode is not None:
+            appointment.mode = request.mode
+        if request.status is not None:
+            appointment.status = request.status
+        if request.notes is not None:
+            appointment.notes = request.notes
+            
+        appointment.patientName = patient_name
+        appointment.doctorName = doctor_name
+        
+        db.commit()
+        db.refresh(appointment)
+        return resolve_appointment(appointment, db)
+
+@router.get("/past_appointments", response_model=List[PastAppointmentResponse])
+def get_past_appointments(db: Session = Depends(get_db)):
+    """Get all past (completed/cancelled/rejected) appointments"""
+    from app.models import PastAppointment
+    past = db.query(PastAppointment).all()
+    return past
 
 @router.get("/staff/appointments", response_model=List[AppointmentResponse])
 def get_staff_appointments(db: Session = Depends(get_db)):

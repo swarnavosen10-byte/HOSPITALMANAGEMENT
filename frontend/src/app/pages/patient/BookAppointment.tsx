@@ -69,7 +69,9 @@ export default function BookAppointment() {
       const user = getUser();
       const payload = {
         patientId: user?.id ?? 999,
+        patientName: user?.displayName ?? user?.username ?? "Patient User",
         doctorId: doctor.id,
+        doctorName: doctor.name,
         hospitalId: hospitalId,
         date,
         time,
