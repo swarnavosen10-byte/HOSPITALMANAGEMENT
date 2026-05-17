@@ -16,11 +16,11 @@ DEMO_USERS = {
 
 @router.post("/register", response_model=LoginResponse)
 def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
-    """Register a new user (handles patient and doctor roles)"""
-    if request.role not in ["patient", "doctor"]:
+    """Register a new user (handles patient, doctor, and hospital_staff roles)"""
+    if request.role not in ["patient", "doctor", "hospital_staff"]:
         return LoginResponse(
             success=False,
-            message="Only Patient and Doctor registrations are supported by the cloud database currently."
+            message="Only Patient, Doctor, and Hospital Staff registrations are supported by the cloud database currently."
         )
     
     # Check if username already exists in database
@@ -42,12 +42,14 @@ def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
     
     hashed = hash_password(request.password)
     
-    # Handle Doctor specific setup
+    # Handle Role-specific setup
     doctorId = None
     verification_status = "APPROVED" # Patients are immediately active
     
+    if request.role in ["doctor", "hospital_staff"]:
+        verification_status = "PENDING" # Doctors and Staff require review
+        
     if request.role == "doctor":
-        verification_status = "PENDING" # Doctors require staff review
         
         # Create unverified profile in doctors table
         new_doctor_profile = Doctor(
@@ -97,9 +99,9 @@ def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=LoginResponse)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
-    """Validate login credentials against demo dictionary or live database (for patients & doctors)"""
-    # If it's a patient or doctor, check the database first!
-    if request.role in ["patient", "doctor"]:
+    """Validate login credentials against demo dictionary or live database (for patients, doctors, and staff)"""
+    # If it's a patient, doctor, or staff, check the database first!
+    if request.role in ["patient", "doctor", "hospital_staff"]:
         db_user = db.query(User).filter(
             User.username.ilike(request.username), 
             User.role == request.role

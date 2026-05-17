@@ -56,7 +56,7 @@ export default function Login() {
       return;
     }
 
-    if (role === "patient" || role === "doctor") {
+    if (role === "patient" || role === "doctor" || role === "hospital_staff") {
       try {
         const res = await api.post<{
           success: boolean;
@@ -83,7 +83,7 @@ export default function Login() {
         const authUser = {
           role: role as any,
           username: res.username || username,
-          displayName: res.displayName || (role === "doctor" ? `Dr. ${username}` : "Patient User"),
+          displayName: res.displayName || (role === "doctor" ? `Dr. ${username}` : role === "hospital_staff" ? `Staff ${username}` : "Patient User"),
           email: res.email || undefined,
           phone: res.phone || undefined,
           verification_status: res.verification_status || "APPROVED",
@@ -127,7 +127,7 @@ export default function Login() {
       return;
     }
 
-    if (regRole === "patient" || regRole === "doctor") {
+    if (regRole === "patient" || regRole === "doctor" || regRole === "hospital_staff") {
       try {
         const res = await api.post<{
           success: boolean;
@@ -139,7 +139,7 @@ export default function Login() {
           displayName: regName,
           email: regEmail || undefined,
           phone: regPhone || undefined,
-          hospitalId: regRole === "doctor" ? regHospitalId : undefined,
+          hospitalId: (regRole === "doctor" || regRole === "hospital_staff") ? regHospitalId : undefined,
         });
 
         if (!res.success) {
@@ -168,15 +168,13 @@ export default function Login() {
       return;
     }
 
-    // Fallback to local storage register for other roles (admin and hospital_staff)
-    const hospitalId = regRole === "hospital_staff" ? regHospitalId : undefined;
-
+    // Fallback to local storage register for other roles (admin)
     const res = registerUser(
       regRole,
       regUsername,
       regPassword,
       regName,
-      hospitalId,
+      undefined,
       undefined,
       regEmail || undefined,
       regPhone || undefined

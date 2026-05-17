@@ -33,8 +33,22 @@ export default function ProtectedRoute({
     return <Navigate to="/" />;
   }
 
-  // Verification Pending Hold Interceptor for Doctors
-  if (user.role === "doctor" && user.verification_status === "PENDING" && !isApproved) {
+  // Verification Pending Hold Interceptor for Doctors & Hospital Staff
+  if ((user.role === "doctor" || user.role === "hospital_staff") && user.verification_status === "PENDING" && !isApproved) {
+    const isDoctor = user.role === "doctor";
+    const userTitle = isDoctor ? "Practitioner" : "Staff Member";
+    const welcomeName = user.displayName || (isDoctor ? `Dr. ${user.username}` : `Staff ${user.username}`);
+    const holdTitle = isDoctor ? "Credentials Verification Pending" : "Staff Onboarding Verification Pending";
+    const securityMessage = isDoctor
+      ? "For institutional security and patient privacy, a hospital staff operator must confirm your medical licenses and allocate you to an active hospital department before access is granted."
+      : "For workstation security and clinical access control, a system administrator must verify your employment records and activate your branch permissions before access is granted.";
+    
+    // Timeline steps
+    const step2Title = isDoctor ? "Credential Review" : "Employment Verification";
+    const step2Desc = isDoctor ? "Staff verification of practitioner role status." : "Administrator confirmation of staff employment records.";
+    const step3Title = isDoctor ? "Hospital Department Allocation" : "Workstation Access Grant";
+    const step3Desc = isDoctor ? "Lock will release once staff assigns your clinical scope." : "Lock will release once administrator grants branch permissions.";
+
     const handleRefresh = async () => {
       setIsRefreshing(true);
       setStatusMessage("");
@@ -93,14 +107,14 @@ export default function ProtectedRoute({
           </div>
 
           <p className="mt-6 text-xs font-bold uppercase tracking-[0.24em] text-amber-700">Verification Gateway</p>
-          <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-900">Credentials Verification Pending</h2>
+          <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-900">{holdTitle}</h2>
           
           <p className="mt-4 text-sm font-medium text-slate-600 leading-relaxed px-2">
-            Welcome, <span className="font-bold text-slate-900">{user.displayName || `Dr. ${user.username}`}</span>. Your medical practitioner account has been registered successfully, but is currently in a <strong>Verification Hold</strong>.
+            Welcome, <span className="font-bold text-slate-900">{welcomeName}</span>. Your {userTitle.toLowerCase()} account has been registered successfully, but is currently in a <strong>Verification Hold</strong>.
           </p>
 
           <p className="mt-3 text-xs text-slate-500 leading-relaxed px-4">
-            For institutional security and patient privacy, a hospital staff operator must confirm your medical licenses and allocate you to an active hospital department before access is granted.
+            {securityMessage}
           </p>
 
           {/* Timeline Review Status */}
@@ -124,18 +138,18 @@ export default function ProtectedRoute({
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-800 flex items-center gap-2">
-                    Credential Review
+                    {step2Title}
                     <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-amber-700 animate-pulse">In Progress</span>
                   </p>
-                  <p className="text-[10px] text-slate-500">Staff verification of practitioner role status.</p>
+                  <p className="text-[10px] text-slate-500">{step2Desc}</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3 opacity-60">
                 <Lock size={14} className="text-slate-400 shrink-0" />
                 <div>
-                  <p className="text-xs font-bold text-slate-600">Hospital Department Allocation</p>
-                  <p className="text-[10px] text-slate-400">Lock will release once staff assigns your clinical scope.</p>
+                  <p className="text-xs font-bold text-slate-600">{step3Title}</p>
+                  <p className="text-[10px] text-slate-400">{step3Desc}</p>
                 </div>
               </div>
             </div>
