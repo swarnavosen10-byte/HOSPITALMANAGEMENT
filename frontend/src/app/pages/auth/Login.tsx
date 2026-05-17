@@ -23,6 +23,7 @@ import {
   validateDemoCredential,
 } from "../../utils/auth";
 import { hospitals } from "../../data";
+import { api } from "../../services/api";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ export default function Login() {
   const [regPhone, setRegPhone] = useState("");
   const [regHospitalId, setRegHospitalId] = useState<number>(hospitals[0]?.id ?? 1);
 
-  const handleLogin = (e: FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -55,6 +56,44 @@ export default function Login() {
       return;
     }
 
+    if (role === "patient") {
+      try {
+        const res = await api.post<{
+          success: boolean;
+          username?: string;
+          role?: string;
+          displayName?: string;
+          email?: string;
+          phone?: string;
+          message: string;
+        }>("/login", {
+          username,
+          password,
+          role,
+        });
+
+        if (!res.success) {
+          setError(res.message || "Invalid credentials for the selected role");
+          return;
+        }
+
+        const authUser = {
+          role: "patient" as const,
+          username: res.username || username,
+          displayName: res.displayName || "Patient User",
+          email: res.email || undefined,
+          phone: res.phone || undefined,
+        };
+
+        loginUser(authUser);
+        navigate(getRoleHomePath("patient"));
+      } catch (err: any) {
+        setError(err.message || "Connection error to server");
+      }
+      return;
+    }
+
+    // Fallback to local demo credentials for non-patient roles
     const authUser = validateDemoCredential(role, username, password);
 
     if (!authUser) {
@@ -66,7 +105,7 @@ export default function Login() {
     navigate(getRoleHomePath(authUser.role));
   };
 
-  const handleRegister = (e: FormEvent<HTMLFormElement>) => {
+  const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -81,7 +120,47 @@ export default function Login() {
       return;
     }
 
-    // Determine optional mappings based on role
+    if (regRole === "patient") {
+      try {
+        const res = await api.post<{
+          success: boolean;
+          message: string;
+        }>("/register", {
+          role: "patient",
+          username: regUsername,
+          password: regPassword,
+          displayName: regName,
+          email: regEmail || undefined,
+          phone: regPhone || undefined,
+        });
+
+        if (!res.success) {
+          setError(res.message || "Failed to create patient account");
+          return;
+        }
+
+        // Setup sign in details automatically
+        setRole("patient");
+        setUsername(regUsername);
+        setPassword(regPassword);
+        setSuccess("Account created successfully! Please sign in below.");
+        
+        // Reset register form
+        setRegName("");
+        setRegUsername("");
+        setRegPassword("");
+        setRegEmail("");
+        setRegPhone("");
+        
+        // Switch back to Login view
+        setIsRegister(false);
+      } catch (err: any) {
+        setError(err.message || "Connection error to server");
+      }
+      return;
+    }
+
+    // Fallback to local storage register for other roles
     const hospitalId = (regRole === "hospital_staff" || regRole === "doctor") ? regHospitalId : undefined;
     const doctorId = regRole === "doctor" ? Math.floor(100 + Math.random() * 900) : undefined; // Mock doctor ID
 
@@ -119,6 +198,7 @@ export default function Login() {
   };
 
   const demoRows = getDemoCredentials();
+
 
   return (
     <div className="page-enter relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
