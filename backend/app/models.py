@@ -67,4 +67,17 @@ class Billing(Base):
     patient = Column(String)
     amount = Column(Integer)
 
+# ================== USER MODEL ==================
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    password_hash = Column(String)
+    displayName = Column(String, nullable=True)
+    role = Column(String, default="patient")
+    email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+
 Base.metadata.create_all(bind=engine)
+

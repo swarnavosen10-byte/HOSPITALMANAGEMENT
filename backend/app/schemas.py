@@ -105,7 +105,19 @@ class LoginResponse(BaseModel):
     success: bool
     username: Optional[str] = None
     role: Optional[str] = None
+    displayName: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
     message: str
+
+class UserRegisterRequest(BaseModel):
+    role: str
+    username: str
+    password: str
+    displayName: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
 
 # ================== NOTIFICATION MODEL ==================
 class Notification(BaseModel):
