@@ -1,10 +1,15 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { getPatientScope } from "../../utils/roleScope";
 import { api } from "../../services/api";
 import { Printer, Calendar, FileText, Pill, Activity, Stethoscope } from "lucide-react";
 
 export default function PatientPrescriptions() {
   const { patientId } = getPatientScope();
+  const location = useLocation();
+  const targetDate = location.state?.date;
+  const targetDoctorId = location.state?.doctorId;
+  
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRx, setSelectedRx] = useState<any | null>(null);
@@ -15,7 +20,12 @@ export default function PatientPrescriptions() {
         const data = await api.get<any[]>(`/prescriptions/patient/${patientId}`);
         setPrescriptions(data);
         if (data.length > 0) {
-          setSelectedRx(data[0]);
+          if (targetDate && targetDoctorId) {
+            const match = data.find((rx: any) => rx.createdAt === targetDate && Number(rx.doctorId) === Number(targetDoctorId));
+            setSelectedRx(match || data[0]);
+          } else {
+            setSelectedRx(data[0]);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch prescriptions:", err);
@@ -24,7 +34,7 @@ export default function PatientPrescriptions() {
       }
     };
     fetchPrescriptions();
-  }, [patientId]);
+  }, [patientId, targetDate, targetDoctorId]);
 
   const handlePrint = () => {
     window.print();

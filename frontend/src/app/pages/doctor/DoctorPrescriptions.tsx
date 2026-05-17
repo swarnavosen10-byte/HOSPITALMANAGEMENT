@@ -1,7 +1,9 @@
 import { useMemo, useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { getPatientsByHospital } from "../../data";
 import { getDoctorScope } from "../../utils/roleScope";
 import { api } from "../../services/api";
+import { Printer, Calendar, FileText, Pill, Activity, Stethoscope, ArrowLeft } from "lucide-react";
 
 type PrescriptionForm = {
   patientId: string;
@@ -17,6 +19,10 @@ type PrescriptionForm = {
 export default function DoctorPrescriptions() {
   const { doctorId, hospitalId } = getDoctorScope();
   const patients = getPatientsByHospital(hospitalId);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const targetDate = location.state?.date;
+  const targetPatientId = location.state?.patientId;
 
   const [todayPatients, setTodayPatients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +43,8 @@ export default function DoctorPrescriptions() {
     setLoading(true);
     try {
       const activeData = await api.get<any[]>("/appointments");
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const d = new Date();
+      const todayStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
       const filteredToday = activeData.filter(
         (apt: any) =>
@@ -134,18 +141,207 @@ export default function DoctorPrescriptions() {
     }
   };
 
+  const targetRx = useMemo(() => {
+    if (targetDate && targetPatientId && prescriptions.length > 0) {
+      return prescriptions.find(rx => rx.createdAt === targetDate && Number(rx.patientId) === Number(targetPatientId)) || null;
+    }
+    return null;
+  }, [prescriptions, targetDate, targetPatientId]);
+
   const enrichedRows = useMemo(
-    () =>
-      prescriptions.map((row) => {
-        const match = todayPatients.find((p) => String(p.id) === String(row.patientId)) ?? 
-                      patients.find((p) => String(p.id) === String(row.patientId));
-        return {
-          ...row,
-          patientName: row.patientName ?? match?.name ?? `Patient #${row.patientId}`,
-        };
-      }),
-    [patients, todayPatients, prescriptions]
+    () => {
+      const d = new Date();
+      const todayStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      return prescriptions
+        .filter(row => {
+          if (targetDate && targetPatientId) {
+            if (row.createdAt === targetDate && Number(row.patientId) === Number(targetPatientId)) {
+              return true;
+            }
+          }
+          return row.createdAt === todayStr;
+        })
+        .map((row) => {
+          const match = todayPatients.find((p) => String(p.id) === String(row.patientId)) ?? 
+                        patients.find((p) => String(p.id) === String(row.patientId));
+          return {
+            ...row,
+            patientName: row.patientName ?? match?.name ?? `Patient #${row.patientId}`,
+          };
+        });
+    },
+    [patients, todayPatients, prescriptions, targetDate, targetPatientId]
   );
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  if (targetRx) {
+    return (
+      <div className="page-content space-y-6 print:space-y-0 print:p-0">
+        <div className="print:hidden flex justify-between items-end">
+          <div>
+            <button 
+              onClick={() => navigate('/doctor-dashboard/appointments')}
+              className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition"
+            >
+              <ArrowLeft size={16} /> Back to Appointments
+            </button>
+            <h1 className="text-3xl font-extrabold text-slate-900">Historical Record</h1>
+            <p className="text-slate-600">Viewing past prescription for {targetRx.patientName}</p>
+          </div>
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 shadow-lg shadow-slate-900/20"
+          >
+            <Printer size={16} />
+            Print Prescription
+          </button>
+        </div>
+
+        <div className="mx-auto bg-white shadow-xl ring-1 ring-slate-100 md:rounded-3xl overflow-hidden print:shadow-none print:ring-0 print:rounded-none" style={{ maxWidth: '210mm', minHeight: '297mm' }}>
+          {/* Header */}
+          <div className="bg-slate-50 border-b border-slate-100 px-8 py-10 print:bg-white print:border-b-2 print:border-slate-800">
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-3xl font-serif text-cyan-900 font-bold mb-1">Dr. {targetRx.doctorName || "Unknown"}</h2>
+                <p className="text-sm font-medium text-slate-500 uppercase tracking-widest">Consultant</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-semibold text-slate-800">Hospital ID: {targetRx.hospitalId}</p>
+                <p className="text-sm text-slate-500 flex items-center justify-end gap-1.5 mt-1">
+                  <Calendar size={14} />
+                  {targetRx.createdAt}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Patient Info */}
+          <div className="px-8 py-6 border-b border-dashed border-slate-200">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Patient Name</p>
+                <p className="text-lg font-semibold text-slate-900">{targetRx.patientName || "Patient"}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Prescription ID</p>
+                <p className="text-sm font-mono text-slate-700">RX-{targetRx.id}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Rx Symbol */}
+          <div className="px-8 pt-8">
+            <span className="text-4xl font-serif text-slate-300 select-none">Rx</span>
+          </div>
+
+          {/* Body */}
+          <div className="px-8 pb-10 space-y-10">
+            
+            {/* Medicines */}
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-slate-100 pb-2">
+                <Pill size={16} className="text-cyan-600" /> Medication Plan
+              </h3>
+              <table className="w-full text-left text-sm border-collapse">
+                <thead>
+                  <tr className="text-slate-500 border-b border-slate-100">
+                    <th className="py-2 font-medium w-1/3">Medicine</th>
+                    <th className="py-2 font-medium">Dosage</th>
+                    <th className="py-2 font-medium">Timing</th>
+                    <th className="py-2 font-medium">Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {targetRx.medicineName?.split(",").map((med: string, idx: number) => {
+                    const dosages = targetRx.dosage?.split(",") || [];
+                    const timings = targetRx.timing?.split(",") || [];
+                    const durations = targetRx.durationDays?.split(",") || [];
+                    
+                    const dosage = dosages[idx]?.trim() || dosages[0]?.trim() || "-";
+                    const timing = timings[idx]?.trim() || timings[0]?.trim() || "-";
+                    const duration = durations[idx]?.trim() || durations[0]?.trim() || "-";
+
+                    return (
+                      <tr key={idx} className="border-b border-slate-50 last:border-0">
+                        <td className="py-3 font-semibold text-slate-800">{med.trim()}</td>
+                        <td className="py-3 text-slate-600">{dosage}</td>
+                        <td className="py-3 text-slate-600">{timing}</td>
+                        <td className="py-3 text-slate-600">{duration} Days</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Tests & Notes */}
+            <div className="grid grid-cols-2 gap-8">
+              {targetRx.testsRecommended && (
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2 border-b border-slate-100 pb-2">
+                    <Activity size={16} className="text-cyan-600" /> Recommended Tests
+                  </h3>
+                  <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
+                    {targetRx.testsRecommended.split(",").map((test: string, idx: number) => (
+                      <li key={idx}>{test.trim()}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {targetRx.notes && (
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2 border-b border-slate-100 pb-2">
+                    <Stethoscope size={16} className="text-cyan-600" /> Clinical Notes
+                  </h3>
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                    {targetRx.notes}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Follow up */}
+            {targetRx.followUpDate && (
+              <div className="bg-cyan-50/50 p-4 rounded-xl border border-cyan-100 text-center print:bg-transparent print:border-none print:p-0 print:text-left print:mt-10">
+                <p className="text-sm text-slate-600">
+                  Please return for a follow-up consultation on <span className="font-bold text-cyan-900">{targetRx.followUpDate}</span>.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="mt-auto px-8 py-8 text-center border-t border-slate-100 text-xs text-slate-400 print:absolute print:bottom-0 print:w-full print:border-t-2 print:border-slate-800">
+            <p>This is a computer generated prescription and does not require a physical signature.</p>
+            <p className="mt-1">Generated via Medisync Platform.</p>
+          </div>
+        </div>
+
+        <style dangerouslySetInnerHTML={{__html: `
+          @media print {
+            body * {
+              visibility: hidden;
+            }
+            .print\\:absolute {
+              visibility: visible;
+            }
+            .print\\:absolute * {
+              visibility: visible;
+            }
+            .print\\:absolute {
+              position: absolute;
+              left: 0;
+              top: 0;
+            }
+          }
+        `}} />
+      </div>
+    );
+  }
 
   return (
     <div className="page-content space-y-6">
@@ -237,33 +433,36 @@ export default function DoctorPrescriptions() {
             </tr>
           </thead>
           <tbody>
-            {enrichedRows.map((row) => (
-              <tr key={row.id} className="border-t border-slate-100 transition hover:bg-slate-50/70">
-                <td className="px-4 py-3 font-semibold text-slate-900">{row.patientName}</td>
-                <td className="px-4 py-3 text-slate-700">
-                  <div className="flex flex-col gap-1">
-                    {row.medicineName?.split(",").map((med: string, idx: number) => {
-                      const dosages = row.dosage?.split(",") || [];
-                      const timings = row.timing?.split(",") || [];
-                      const durations = row.durationDays?.split(",") || [];
-                      
-                      const dosage = dosages[idx]?.trim() || dosages[0]?.trim() || "";
-                      const timing = timings[idx]?.trim() || timings[0]?.trim() || "";
-                      const duration = durations[idx]?.trim() || durations[0]?.trim() || "";
+            {enrichedRows.map((row) => {
+              const isTarget = targetDate && targetPatientId && row.createdAt === targetDate && Number(row.patientId) === Number(targetPatientId);
+              return (
+                <tr key={row.id} className={`border-t border-slate-100 transition hover:bg-slate-50/70 ${isTarget ? 'bg-cyan-50/50 ring-2 ring-inset ring-cyan-200' : ''}`}>
+                  <td className="px-4 py-3 font-semibold text-slate-900">{row.patientName} {isTarget && <span className="ml-2 inline-flex items-center rounded-md bg-cyan-100 px-2 py-1 text-xs font-medium text-cyan-700 ring-1 ring-inset ring-cyan-700/10">Requested Record</span>}</td>
+                  <td className="px-4 py-3 text-slate-700">
+                    <div className="flex flex-col gap-1">
+                      {row.medicineName?.split(",").map((med: string, idx: number) => {
+                        const dosages = row.dosage?.split(",") || [];
+                        const timings = row.timing?.split(",") || [];
+                        const durations = row.durationDays?.split(",") || [];
+                        
+                        const dosage = dosages[idx]?.trim() || dosages[0]?.trim() || "";
+                        const timing = timings[idx]?.trim() || timings[0]?.trim() || "";
+                        const duration = durations[idx]?.trim() || durations[0]?.trim() || "";
 
-                      return (
-                        <span key={idx}>
-                          <strong>{med.trim()}</strong> - {dosage} - {timing} ({duration} days)
-                        </span>
-                      );
-                    })}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-slate-700">{row.testsRecommended || "None"}</td>
-                <td className="px-4 py-3 text-slate-700">{row.followUpDate}</td>
-                <td className="px-4 py-3 text-slate-500">{row.createdAt}</td>
-              </tr>
-            ))}
+                        return (
+                          <span key={idx}>
+                            <strong>{med.trim()}</strong> - {dosage} - {timing} ({duration} days)
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-slate-700">{row.testsRecommended || "None"}</td>
+                  <td className="px-4 py-3 text-slate-700">{row.followUpDate}</td>
+                  <td className="px-4 py-3 text-slate-500">{row.createdAt}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 

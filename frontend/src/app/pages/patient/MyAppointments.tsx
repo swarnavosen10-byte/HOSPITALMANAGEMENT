@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../../services/api.ts";
 import { getUser } from "../../utils/auth";
 import { hospitals, doctors as mockDoctors } from "../../data";
@@ -23,8 +24,10 @@ export type PatientAppointment = {
 export default function MyAppointments() {
   const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
   const [pastAppointments, setPastAppointments] = useState<PatientAppointment[]>([]);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"active" | "past">("active");
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchData();
@@ -36,10 +39,11 @@ export default function MyAppointments() {
       const user = getUser();
       const patientId = user?.id ?? 999;
 
-      const [appointmentsData, pastAppointmentsData, doctorsData] = await Promise.all([
+      const [appointmentsData, pastAppointmentsData, doctorsData, prescriptionsData] = await Promise.all([
         api.get<any[]>("/appointments"),
         api.get<any[]>("/past_appointments"),
-        api.get<any[]>("/doctors").catch(() => [])
+        api.get<any[]>("/doctors").catch(() => []),
+        api.get<any[]>(`/prescriptions/patient/${patientId}`).catch(() => [])
       ]);
 
       const mapAppointment = (apt: any) => {
@@ -65,6 +69,7 @@ export default function MyAppointments() {
 
       setAppointments(myActive);
       setPastAppointments(myPast);
+      setPrescriptions(prescriptionsData || []);
     } catch (err) {
       console.error("Failed to fetch appointments:", err);
     } finally {
@@ -212,8 +217,16 @@ export default function MyAppointments() {
                 <div className="text-sm text-slate-600">
                   <span className="font-semibold text-slate-900">{appointment.date}</span> at <span className="font-semibold text-slate-900">{appointment.time}</span>
                 </div>
-                <div className="text-xs text-slate-500 font-medium">
-                  Resolved on: {appointment.completionOrCancellationDate ?? "Archived"}
+                <div className="text-xs text-slate-500 font-medium flex items-center gap-4">
+                  <span>Resolved on: {appointment.completionOrCancellationDate ?? "Archived"}</span>
+                  {appointment.status === "Completed" && prescriptions.some(rx => (rx.createdAt === appointment.date || rx.createdAt === appointment.completionOrCancellationDate) && Number(rx.doctorId) === Number(appointment.doctorId)) && (
+                    <button 
+                      onClick={() => navigate('/patient-dashboard/prescriptions', { state: { date: appointment.completionOrCancellationDate || appointment.date, doctorId: appointment.doctorId } })}
+                      className="text-cyan-600 bg-cyan-50 px-3 py-1 rounded-full font-bold hover:bg-cyan-100 transition"
+                    >
+                      View Prescription
+                    </button>
+                  )}
                 </div>
               </div>
               {appointment.notes && (

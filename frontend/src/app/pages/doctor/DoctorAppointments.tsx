@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { getPatientsByHospital, type AppointmentStatus } from "../../data";
 import { getDoctorScope } from "../../utils/roleScope";
 import { api } from "../../services/api.ts";
@@ -9,15 +10,18 @@ export default function DoctorAppointments() {
 
   const [rows, setRows] = useState<any[]>([]);
   const [pastRows, setPastRows] = useState<any[]>([]);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"active" | "past">("active");
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const fetchAppointments = async () => {
     setLoading(true);
     try {
-      const [activeData, pastData] = await Promise.all([
+      const [activeData, pastData, prescriptionsData] = await Promise.all([
         api.get<any[]>("/appointments"),
-        api.get<any[]>("/past_appointments")
+        api.get<any[]>("/past_appointments"),
+        api.get<any[]>(`/prescriptions/doctor/${doctorId}`).catch(() => [])
       ]);
 
       const filteredActive = activeData.filter(
@@ -51,6 +55,7 @@ export default function DoctorAppointments() {
 
       setRows(filteredActive);
       setPastRows(filteredPast);
+      setPrescriptions(prescriptionsData || []);
     } catch (err) {
       console.error("Failed to fetch appointments:", err);
     } finally {
@@ -198,6 +203,10 @@ export default function DoctorAppointments() {
                 {pastRows.map((row, index) => {
                   const patient = patients.find((item) => item.id === row.patientId);
                   const isCompleted = row.status === "Completed";
+                  const matchingRx = isCompleted ? prescriptions.find(rx => 
+                    (rx.createdAt === row.date || rx.createdAt === row.completionOrCancellationDate) && 
+                    Number(rx.patientId) === Number(row.patientId)
+                  ) : null;
                   return (
                     <tr key={row.id} className="border-t border-slate-100 align-top transition hover:bg-slate-50/70">
                       <td className="px-4 py-3 font-semibold text-slate-500">{index + 1}</td>
@@ -210,6 +219,14 @@ export default function DoctorAppointments() {
                         }`}>
                           {row.status}
                         </span>
+                        {matchingRx && (
+                          <button 
+                            onClick={() => navigate('/doctor-dashboard/prescriptions', { state: { date: matchingRx.createdAt, patientId: row.patientId } })}
+                            className="mt-2 block rounded bg-cyan-50 px-2 py-1 text-[10px] font-bold text-cyan-700 transition hover:bg-cyan-100"
+                          >
+                            View Prescription
+                          </button>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-slate-600 font-medium">{row.completionOrCancellationDate ?? "Archived"}</td>
                       <td className="px-4 py-3 text-slate-500 italic max-w-xs truncate">{row.notes}</td>

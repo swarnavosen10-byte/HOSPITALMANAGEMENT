@@ -40,9 +40,61 @@ def resolve_appointment(a, db: Session):
         doctorName=doctor_name
     )
 
+def auto_archive_past_appointments(db: Session):
+    import datetime
+    from app.models import PastAppointment, User, Doctor
+    
+    current_date_str = datetime.date.today().strftime("%Y-%m-%d")
+    
+    past_due_appointments = db.query(Appointment).filter(Appointment.date < current_date_str).all()
+    
+    if not past_due_appointments:
+        return
+        
+    for apt in past_due_appointments:
+        patient_name = apt.patientName
+        if not patient_name and apt.patientId:
+            user = db.query(User).filter(User.id == apt.patientId).first()
+            if user:
+                patient_name = user.displayName
+        if not patient_name:
+            patient_name = "Guest Patient"
+            
+        doctor_name = apt.doctorName
+        if not doctor_name and apt.doctorId:
+            doc = db.query(Doctor).filter(Doctor.id == apt.doctorId).first()
+            if doc:
+                doctor_name = doc.name
+        if not doctor_name:
+            doctor_name = f"Dr. (ID: {apt.doctorId})"
+
+        status = apt.status
+        if status not in ["Completed", "Cancelled", "Rejected"]:
+            status = "No-show"
+            
+        past_apt = PastAppointment(
+            patientId=apt.patientId,
+            doctorId=apt.doctorId,
+            hospitalId=apt.hospitalId,
+            patientName=patient_name,
+            doctorName=doctor_name,
+            date=apt.date,
+            time=apt.time,
+            type=apt.type,
+            mode=apt.mode,
+            status=status,
+            notes=apt.notes,
+            completionOrCancellationDate=current_date_str
+        )
+        db.add(past_apt)
+        db.delete(apt)
+        
+    db.commit()
+
 @router.get("/appointments", response_model=List[AppointmentResponse])
 def get_appointments(db: Session = Depends(get_db)):
     """Get all appointments"""
+    auto_archive_past_appointments(db)
     appointments = db.query(Appointment).all()
     return [resolve_appointment(a, db) for a in appointments]
 
@@ -198,6 +250,7 @@ def get_past_appointments(db: Session = Depends(get_db)):
 @router.get("/staff/appointments", response_model=List[AppointmentResponse])
 def get_staff_appointments(db: Session = Depends(get_db)):
     """Get all appointments for staff"""
+    auto_archive_past_appointments(db)
     appointments = db.query(Appointment).all()
     return [resolve_appointment(a, db) for a in appointments]
 
