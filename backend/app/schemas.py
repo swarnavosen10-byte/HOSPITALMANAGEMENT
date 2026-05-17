@@ -51,6 +51,8 @@ class DoctorResponse(BaseModel):
     fees: Optional[int] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    username: Optional[str] = None
+    tempPassword: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -108,6 +110,9 @@ class LoginResponse(BaseModel):
     displayName: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    verification_status: Optional[str] = None
+    doctorId: Optional[int] = None
+    hospitalId: Optional[int] = None
     message: str
 
 class UserRegisterRequest(BaseModel):
@@ -117,6 +122,8 @@ class UserRegisterRequest(BaseModel):
     displayName: str
     email: Optional[str] = None
     phone: Optional[str] = None
+    hospitalId: Optional[int] = None
+
 
 
 # ================== NOTIFICATION MODEL ==================

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { getDoctorSchedulesByHospital, getHospitalById, type Doctor } from "../../data";
 import { getStaffHospitalId } from "../../utils/roleScope";
 import { api } from "../../services/api.ts";
+import { Pencil, X, Loader2 } from "lucide-react";
 
 export default function StaffDoctors() {
   const hospitalId = getStaffHospitalId();
@@ -10,6 +11,57 @@ export default function StaffDoctors() {
   const [departmentFilter, setDepartmentFilter] = useState("All");
   const [availabilityFilter, setAvailabilityFilter] = useState("All");
   const [loading, setLoading] = useState(true);
+  const [createdCredentials, setCreatedCredentials] = useState<{ username: string; tempPassword: string; name: string } | null>(null);
+
+  const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    department: "Cardiology",
+    experience: "5",
+    availability: "Available" as Doctor["availability"],
+    fees: "900",
+    phone: "+91 ",
+    email: "",
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleEditClick = (doctor: Doctor) => {
+    setEditingDoctor(doctor);
+    setEditForm({
+      name: doctor.name,
+      department: doctor.department,
+      experience: String(doctor.experience),
+      availability: doctor.availability,
+      fees: String(doctor.fees),
+      phone: doctor.phone,
+      email: doctor.email,
+    });
+  };
+
+  const saveDoctorEdits = async () => {
+    if (!editingDoctor) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        name: editForm.name.trim(),
+        specialization: editForm.department,
+        department: editForm.department,
+        experience: Number(editForm.experience),
+        availability: editForm.availability,
+        fees: Number(editForm.fees),
+        phone: editForm.phone.trim(),
+        email: editForm.email.trim(),
+      };
+      await api.put(`/doctors/${editingDoctor.id}`, payload);
+      await fetchDoctors();
+      setEditingDoctor(null);
+    } catch (err) {
+      console.error("Failed to save doctor edits:", err);
+      alert("Failed to save doctor edits. Please verify backend status.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const [doctorRows, setDoctorRows] = useState<Doctor[]>([]);
   const [form, setForm] = useState({
@@ -92,8 +144,16 @@ export default function StaffDoctors() {
         email: form.email.trim(),
       };
 
-      await api.post("/doctors", payload);
+      const response = await api.post<any>("/doctors", payload);
       await fetchDoctors();
+
+      if (response && response.username && response.tempPassword) {
+        setCreatedCredentials({
+          username: response.username,
+          tempPassword: response.tempPassword,
+          name: response.name,
+        });
+      }
 
       setForm({
         name: "",
@@ -117,6 +177,38 @@ export default function StaffDoctors() {
         <h1 className="mt-2 text-3xl font-extrabold text-slate-900">Doctor Management</h1>
         <p className="text-slate-600">Track specialization, schedule load, and availability for {hospital?.name ?? "your hospital"} doctors.</p>
       </div>
+
+      {createdCredentials && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 shadow-sm relative overflow-hidden animate-fade-in">
+          <div className="absolute top-4 right-4">
+            <button
+              onClick={() => setCreatedCredentials(null)}
+              className="text-emerald-700 hover:text-emerald-950 text-xs font-bold bg-white/80 border border-emerald-100 hover:bg-white rounded-lg px-2.5 py-1 transition shadow-sm active:scale-95"
+            >
+              Dismiss
+            </button>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="rounded-full bg-emerald-500/10 border border-emerald-500/25 p-2 text-emerald-800 font-extrabold text-sm flex items-center justify-center h-8 w-8">✓</span>
+            <div>
+              <h3 className="text-sm font-bold text-emerald-900">Doctor Credentials Provisioned Successfully!</h3>
+              <p className="text-xs text-emerald-700 mt-0.5">Please share these secure, temporary sign-in credentials with {createdCredentials.name}:</p>
+              
+              <div className="mt-3.5 flex flex-wrap gap-4 bg-white/90 rounded-xl border border-emerald-100/60 p-4 text-xs shadow-sm">
+                <div>
+                  <span className="font-bold text-slate-500 block uppercase tracking-wider text-[9px] mb-1">Login Username</span>
+                  <span className="font-mono font-bold text-slate-900 text-sm select-all bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 block w-fit">{createdCredentials.username}</span>
+                </div>
+                <div className="border-l border-emerald-100/60 pl-4">
+                  <span className="font-bold text-slate-500 block uppercase tracking-wider text-[9px] mb-1">Temporary Password</span>
+                  <span className="font-mono font-bold text-slate-900 text-sm select-all bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 block w-fit">{createdCredentials.tempPassword}</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-3.5">💡 Tip: Clicking on the username or password box selects the entire text for easy copying.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="surface-card grid grid-cols-1 gap-3 p-4 md:grid-cols-2 xl:grid-cols-6">
         <div>
@@ -243,6 +335,7 @@ export default function StaffDoctors() {
                 <th className="px-5 py-3">Schedule Slots</th>
                 <th className="px-5 py-3">Emergency Duties</th>
                 <th className="px-5 py-3">Contact</th>
+                <th className="px-5 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -267,6 +360,15 @@ export default function StaffDoctors() {
                       <p className="font-medium">{doctor.phone}</p>
                       <p className="text-xs text-slate-500">₹{doctor.fees.toLocaleString("en-IN")}</p>
                     </td>
+                    <td className="px-5 py-4 text-right">
+                      <button
+                        onClick={() => handleEditClick(doctor)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-cyan-700 transition active:scale-95 shadow-sm"
+                      >
+                        <Pencil size={12} />
+                        <span>Edit</span>
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -278,6 +380,140 @@ export default function StaffDoctors() {
           <p className="p-5 text-sm text-slate-500">No doctors match the selected filters.</p>
         )}
       </div>
+
+      {/* Interactive Doctor Edit Modal */}
+      {editingDoctor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 transform scale-up transition duration-300">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+              <div className="flex items-center gap-3">
+                <span className="rounded-xl bg-cyan-50 p-2.5 text-cyan-700">
+                  <Pencil size={20} />
+                </span>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-lg">Edit Doctor Profile</h3>
+                  <p className="text-xs text-slate-500">Update medical and contact details for {editingDoctor.name}.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingDoctor(null)}
+                className="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 hover:bg-slate-50 active:scale-95 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Doctor Name</label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Department</label>
+                  <select
+                    value={editForm.department}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, department: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none bg-white"
+                  >
+                    {(hospital?.departments.map((d) => d.name) ?? ["Cardiology"]).map((dept) => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Experience (Years)</label>
+                  <input
+                    type="number"
+                    value={editForm.experience}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, experience: e.target.value }))}
+                    min={0}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Availability Status</label>
+                  <select
+                    value={editForm.availability}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, availability: e.target.value as any }))}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none bg-white"
+                  >
+                    <option value="Available">Available</option>
+                    <option value="Limited">Limited</option>
+                    <option value="On Leave">On Leave</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Consultation Fees (INR)</label>
+                  <input
+                    type="number"
+                    value={editForm.fees}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, fees: e.target.value }))}
+                    min={0}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Phone Number</label>
+                  <input
+                    type="text"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Email Address</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 border-t border-slate-100 pt-4">
+              <button
+                onClick={() => setEditingDoctor(null)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveDoctorEdits}
+                disabled={isSaving}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-700 py-2.5 text-xs font-bold text-white hover:bg-cyan-800 active:scale-95 transition disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Save Changes</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

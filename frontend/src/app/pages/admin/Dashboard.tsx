@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -12,8 +12,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Activity, Building2, Stethoscope, Users } from "lucide-react";
-import { adminPatients, doctors, hospitals } from "../../data";
+import { Activity, Building2, Stethoscope, Users, UserCheck, ShieldAlert, Loader2 } from "lucide-react";
+import { adminPatients, doctors, hospitals, getHospitalById } from "../../data";
+import { api } from "../../services/api";
 
 type EmergencyStatus = "Active" | "Busy" | "Unavailable";
 
@@ -36,6 +37,62 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
 };
 
 export default function Dashboard() {
+  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+  const [actioningUsername, setActioningUsername] = useState<string | null>(null);
+
+  const fetchPendingUsers = async () => {
+    setLoadingPending(true);
+    try {
+      const res = await api.get<any[]>("/admin/pending-users");
+      setPendingUsers(res);
+    } catch (err) {
+      console.error("Failed to fetch pending users:", err);
+    } finally {
+      setLoadingPending(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingUsers();
+  }, []);
+
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState<any | null>(null);
+  const [specialization, setSpecialization] = useState("Cardiology");
+  const [department, setDepartment] = useState("Cardiology");
+  const [fees, setFees] = useState(500);
+  const [experience, setExperience] = useState(2);
+
+  const handleApproveClick = (user: any) => {
+    if (user.role === "doctor") {
+      setSelectedDoctor(user);
+      const docHospital = getHospitalById(user.hospitalId);
+      const defaultDept = docHospital?.departments[0]?.name || "Cardiology";
+      setSpecialization(defaultDept);
+      setDepartment(defaultDept);
+      setFees(500);
+      setExperience(2);
+      setShowSetupModal(true);
+    } else {
+      handleApprove(user.username);
+    }
+  };
+
+  const handleApprove = async (username: string, doctorDetails?: any) => {
+    setActioningUsername(username);
+    try {
+      await api.post(`/admin/approve-user/${username}`, doctorDetails || {});
+      await fetchPendingUsers();
+      setShowSetupModal(false);
+      setSelectedDoctor(null);
+    } catch (err) {
+      console.error("Failed to approve user:", err);
+    } finally {
+      setActioningUsername(null);
+    }
+  };
+
   const [selectedEmergencyStatus, setSelectedEmergencyStatus] =
     useState<EmergencyStatus>("Active");
   const [selectedStatusHospitalId, setSelectedStatusHospitalId] = useState<number | null>(null);
@@ -377,6 +434,101 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      {/* Pending Verifications Panel */}
+      <div className="surface-card p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <ShieldAlert className="text-cyan-700" size={18} />
+              <span>Pending Staff & Doctor Verifications</span>
+            </h2>
+            <p className="text-xs text-slate-500">Authorized reviews for credentials onboarding holds.</p>
+          </div>
+          {loadingPending && (
+            <span className="flex items-center gap-1.5 text-xs text-slate-400">
+              <Loader2 className="animate-spin" size={12} />
+              Loading...
+            </span>
+          )}
+        </div>
+
+        {pendingUsers.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center text-sm text-slate-500">
+            ✅ No pending staff or doctor verifications at this time.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {pendingUsers.map((p) => {
+              const isDoctor = p.role === "doctor";
+              const isActioning = actioningUsername === p.username;
+
+              return (
+                <div
+                  key={p.username}
+                  className="relative rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm hover:shadow-md transition duration-300 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-slate-900 text-sm">
+                          {p.displayName || p.username}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                          @{p.username}
+                        </p>
+                      </div>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                          isDoctor ? "bg-amber-50 text-amber-700 border border-amber-100" : "bg-cyan-50 text-cyan-700 border border-cyan-100"
+                        }`}
+                      >
+                        {isDoctor ? "Doctor" : "Hospital Staff"}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 space-y-1 text-xs text-slate-600 border-t border-slate-50 pt-2.5">
+                      <p className="flex items-center gap-1.5">
+                        <span className="font-semibold text-slate-500">Hospital:</span>
+                        <span className="text-slate-800 font-medium truncate">{p.hospitalName || "Unassigned"}</span>
+                      </p>
+                      {p.email && (
+                        <p className="truncate">
+                          <span className="font-semibold text-slate-500">Email:</span> {p.email}
+                        </p>
+                      )}
+                      {p.phone && (
+                        <p>
+                          <span className="font-semibold text-slate-500">Phone:</span> {p.phone}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 border-t border-slate-50 pt-3">
+                    <button
+                      onClick={() => handleApproveClick(p)}
+                      disabled={isActioning}
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-700 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-cyan-800 active:scale-95 disabled:opacity-50"
+                    >
+                      {isActioning ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          <span>Approving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserCheck size={13} />
+                          <span>Approve Access</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <div className="surface-card p-5">
@@ -431,6 +583,111 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Doctor Clinical Onboarding Setup Modal */}
+      {showSetupModal && selectedDoctor && (() => {
+        const docHospital = getHospitalById(selectedDoctor.hospitalId);
+        const docDepartments = docHospital?.departments.map((d: any) => d.name) || [
+          "Cardiology",
+          "Neurology",
+          "Pediatrics",
+          "Emergency",
+          "Outpatient"
+        ];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+            <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 transform scale-up transition duration-300">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-4">
+                <span className="rounded-xl bg-amber-50 p-2.5 text-amber-700">
+                  <Stethoscope size={20} />
+                </span>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-lg">Verify & Setup Doctor</h3>
+                  <p className="text-xs text-slate-500">Configure medical credentials for {selectedDoctor.displayName || selectedDoctor.username}.</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Medical Specialization</label>
+                  <select
+                    value={specialization}
+                    onChange={(e) => setSpecialization(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none bg-white"
+                  >
+                    {docDepartments.map((dept) => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Clinical Department</label>
+                  <select
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none bg-white"
+                  >
+                    {docDepartments.map((dept) => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Consultation Fees (INR)</label>
+                    <input
+                      type="number"
+                      value={fees}
+                      onChange={(e) => setFees(Number(e.target.value))}
+                      min={0}
+                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Experience (Years)</label>
+                    <input
+                      type="number"
+                      value={experience}
+                      onChange={(e) => setExperience(Number(e.target.value))}
+                      min={0}
+                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6 border-t border-slate-100 pt-4">
+                <button
+                  onClick={() => {
+                    setShowSetupModal(false);
+                    setSelectedDoctor(null);
+                  }}
+                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleApprove(selectedDoctor.username, { specialization, department, fees, experience })}
+                  disabled={actioningUsername === selectedDoctor.username}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-700 py-2.5 text-xs font-bold text-white hover:bg-cyan-800 active:scale-95 transition disabled:opacity-50"
+                >
+                  {actioningUsername === selectedDoctor.username ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" />
+                      <span>Approving...</span>
+                    </>
+                  ) : (
+                    <span>Save & Verify</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

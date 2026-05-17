@@ -29,6 +29,21 @@ export const api = {
     return response.json();
   },
 
+  async put<T>(endpoint: string, body: any): Promise<T> {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      throw new Error(`PUT ${endpoint} failed: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
   async delete<T>(endpoint: string): Promise<T> {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method: "DELETE",
