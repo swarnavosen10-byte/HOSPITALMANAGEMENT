@@ -85,6 +85,21 @@ def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
+    # If the user is a patient, create a corresponding profile in the patients table
+    # We map the Patient.id to the User.id so they stay perfectly in sync
+    if request.role == "patient":
+        new_patient = Patient(
+            id=new_user.id,
+            name=request.displayName,
+            age=30, # Default age
+            gender="Unknown",
+            diagnosis="New Registration",
+            status="Waiting",
+            hospitalId=request.hospitalId or 1
+        )
+        db.add(new_patient)
+        db.commit()
+    
     return LoginResponse(
         success=True,
         id=new_user.id,

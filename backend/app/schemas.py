@@ -164,6 +164,41 @@ class Notification(BaseModel):
     message: str
     type: str
 
+# ================== PRESCRIPTION MODELS ==================
+class PrescriptionCreate(BaseModel):
+    doctorId: Optional[int] = None
+    doctorName: Optional[str] = None
+    hospitalId: Optional[int] = None
+    patientId: Optional[int] = None
+    patientName: Optional[str] = None
+    medicineName: Optional[str] = None
+    dosage: Optional[str] = None
+    timing: Optional[str] = None
+    durationDays: Optional[str] = None
+    testsRecommended: Optional[str] = None
+    followUpDate: Optional[str] = None
+    notes: Optional[str] = None
+
+class PrescriptionResponse(BaseModel):
+    id: int
+    doctorId: Optional[int] = None
+    doctorName: Optional[str] = None
+    hospitalId: Optional[int] = None
+    patientId: Optional[int] = None
+    patientName: Optional[str] = None
+    medicineName: Optional[str] = None
+    dosage: Optional[str] = None
+    timing: Optional[str] = None
+    durationDays: Optional[str] = None
+    testsRecommended: Optional[str] = None
+    followUpDate: Optional[str] = None
+    notes: Optional[str] = None
+    createdAt: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ================== DASHBOARD MODELS ==================
 class AdminDashboard(BaseModel):
     total_patients: int

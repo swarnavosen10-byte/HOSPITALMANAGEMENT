@@ -102,6 +102,26 @@ class PastAppointment(Base):
     notes = Column(String, nullable=True)
     completionOrCancellationDate = Column("completionOrCancellationDate", String, nullable=True)
 
+# ================== PRESCRIPTION MODEL ==================
+class Prescription(Base):
+    __tablename__ = "prescriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    doctorId = Column("doctorId", Integer, nullable=True)
+    doctorName = Column("doctorName", String, nullable=True)
+    hospitalId = Column("hospitalId", Integer, nullable=True)
+    patientId = Column("patientId", Integer, nullable=True)
+    patientName = Column("patientName", String, nullable=True)
+    medicineName = Column("medicineName", String, nullable=True)
+    dosage = Column("dosage", String, nullable=True)
+    timing = Column("timing", String, nullable=True)
+    durationDays = Column("durationDays", String, nullable=True)
+    testsRecommended = Column("testsRecommended", String, nullable=True)
+    followUpDate = Column("followUpDate", String, nullable=True)
+    notes = Column("notes", String, nullable=True)
+    createdAt = Column("createdAt", String, nullable=True)
+
+
 Base.metadata.create_all(bind=engine)
 
 

@@ -28,6 +28,7 @@ import DoctorCalendar from "./pages/doctor/DoctorCalendar";
 import DoctorNotifications from "./pages/doctor/DoctorNotifications";
 import DoctorSettings from "./pages/doctor/DoctorSettings";
 import MyAppointments from "./pages/patient/MyAppointments";
+import PatientPrescriptions from "./pages/patient/PatientPrescriptions";
 import HospitalDetails from "./pages/patient/HospitalDetails";
 import Departments from "./pages/patient/Departments";
 import DoctorList from "./pages/patient/DoctorList";
@@ -104,6 +105,7 @@ function App() {
           />
           <Route path="book/:doctorId" element={<BookAppointment />} />
           <Route path="my-appointments" element={<MyAppointments />} />
+          <Route path="prescriptions" element={<PatientPrescriptions />} />
         </Route>
 
         {/* HOSPITAL STAFF ROUTES */}
