@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { api } from "../../services/api.ts";
 import { getUser } from "../../utils/auth";
-import { hospitals, doctors as mockDoctors, type Doctor } from "../../data";
+import { hospitals, doctors as mockDoctors } from "../../data";
 
 export type PatientAppointment = {
   id: string;
@@ -22,7 +22,6 @@ export type PatientAppointment = {
 export default function MyAppointments() {
   const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [allDoctors, setAllDoctors] = useState<Doctor[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -39,8 +38,6 @@ export default function MyAppointments() {
         api.get<any[]>("/appointments"),
         api.get<any[]>("/doctors").catch(() => []) // Fallback to empty if fails
       ]);
-
-      setAllDoctors(doctorsData);
 
       // Filter appointments for this patient
       const myAppointments = appointmentsData
@@ -83,7 +80,7 @@ export default function MyAppointments() {
 
   const updateStatus = async (
     appointmentId: string,
-    status: "Scheduled" | "Completed" | "Cancelled"
+    _status: "Scheduled" | "Completed" | "Cancelled"
   ) => {
     try {
       // In a real app, we'd have a PUT endpoint. 
