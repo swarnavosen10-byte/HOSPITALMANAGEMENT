@@ -15,6 +15,9 @@ export default function BookAppointment() {
 
   const [date, setDate] = useState("");
   const [time, setTime] = useState("10:00 AM");
+  const [type, setType] = useState("Consultation");
+  const [mode, setMode] = useState("In-person");
+  const [notes, setNotes] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -71,9 +74,9 @@ export default function BookAppointment() {
         date,
         time,
         status: "Scheduled",
-        type: "Consultation",
-        mode: "In-person",
-        notes: "Booked via Patient Portal"
+        type,
+        mode,
+        notes: notes || "Booked via Patient Portal"
       };
 
       await api.post("/appointments", payload);
@@ -113,33 +116,74 @@ export default function BookAppointment() {
 
       <div className="surface-card max-w-2xl p-6">
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="block text-sm font-semibold text-slate-700">
-            Select date
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              aria-label="Appointment date"
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
-            />
-          </label>
+        <label className="block text-sm font-semibold text-slate-700">
+          Select date
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            aria-label="Appointment date"
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+          />
+        </label>
 
-          <label className="block text-sm font-semibold text-slate-700">
-            Select time slot
-            <select
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              aria-label="Appointment time slot"
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
-            >
-              {timeSlots.map((slot) => (
-                <option key={slot} value={slot}>
-                  {slot}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <label className="block text-sm font-semibold text-slate-700">
+          Select time slot
+          <select
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            aria-label="Appointment time slot"
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+          >
+            {timeSlots.map((slot) => (
+              <option key={slot} value={slot}>
+                {slot}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block text-sm font-semibold text-slate-700 mt-2">
+          Appointment Type
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            aria-label="Appointment type"
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+          >
+            <option value="Consultation">General Consultation</option>
+            <option value="Follow-up">Follow-up Visit</option>
+            <option value="Routine Checkup">Routine Checkup</option>
+            <option value="Emergency">Emergency Appointment</option>
+          </select>
+        </label>
+
+        <label className="block text-sm font-semibold text-slate-700 mt-2">
+          Consultation Mode
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value)}
+            aria-label="Consultation mode"
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+          >
+            <option value="In-person">In-Person (Walk-In)</option>
+            <option value="Video Consultation">Video Call (Virtual)</option>
+            <option value="Tele-health">Telephonic Consultation</option>
+          </select>
+        </label>
+      </div>
+
+      <label className="block text-sm font-semibold text-slate-700 mt-4">
+        Describe Symptoms / Notes (Optional)
+        <textarea
+          placeholder="Describe any symptoms, medical history, or specific notes for the doctor..."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          aria-label="Symptoms or notes"
+          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100 resize-none"
+        />
+      </label>
 
         <button
           onClick={handleConfirm}

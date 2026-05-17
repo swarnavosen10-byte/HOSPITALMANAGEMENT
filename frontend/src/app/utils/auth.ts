@@ -10,6 +10,8 @@ export type AuthUser = {
   activeHospitalId?: number;
   doctorId?: number;
   displayName?: string;
+  email?: string;
+  phone?: string;
 };
 
 export type DemoCredential = {
@@ -20,6 +22,8 @@ export type DemoCredential = {
   hospitalIds?: number[];
   doctorId?: number;
   displayName: string;
+  email?: string;
+  phone?: string;
 };
 
 const slugify = (value: string) =>
@@ -35,12 +39,16 @@ const demoCredentials: DemoCredential[] = [
     username: "admin",
     password: "123",
     displayName: "Network Admin",
+    email: "admin@medisync.com",
+    phone: "+91 90000 00001",
   },
   {
     role: "patient",
     username: "patient",
     password: "123",
     displayName: "Patient User",
+    email: "patient@gmail.com",
+    phone: "+91 98300 12345",
   },
   ...hospitals.map((hospital, index) => ({
     role: "hospital_staff" as const,
@@ -48,6 +56,8 @@ const demoCredentials: DemoCredential[] = [
     password: "123",
     hospitalId: hospital.id,
     displayName: `${hospital.name} Staff`,
+    email: `staff.${slugify(hospital.name)}@medisync.com`,
+    phone: `+91 90511 ${10000 + hospital.id}`,
   })),
   ...doctors.map((doctor) => {
     const hospitalIds = doctor.practiceHospitalIds ?? [doctor.hospitalId];
@@ -59,6 +69,8 @@ const demoCredentials: DemoCredential[] = [
       hospitalIds,
       doctorId: doctor.id,
       displayName: doctor.name,
+      email: doctor.email || `${slugify(doctor.name)}@medisync.com`,
+      phone: doctor.phone || "+91 90511 11000",
     };
   }),
   {
@@ -69,6 +81,8 @@ const demoCredentials: DemoCredential[] = [
     hospitalId: 1,
     doctorId: 101,
     displayName: "Dr. Rahul Das (Multi-Hospital)",
+    email: "rahul.das@medisync.com",
+    phone: "+91 90511 11001",
   },
 ];
 
@@ -109,12 +123,64 @@ export const getRoleHomePath = (role: UserRole) => {
   return "/doctor-dashboard";
 };
 
+export const getRegisteredUsers = (): DemoCredential[] => {
+  const users = localStorage.getItem("registered_users");
+  if (!users) return [];
+  try {
+    return JSON.parse(users) as DemoCredential[];
+  } catch {
+    return [];
+  }
+};
+
+export const registerUser = (
+  role: UserRole,
+  username: string,
+  password: string,
+  displayName: string,
+  hospitalId?: number,
+  doctorId?: number,
+  email?: string,
+  phone?: string
+): { success: boolean; message: string } => {
+  const registered = getRegisteredUsers();
+  
+  const existsInDemo = demoCredentials.some(
+    (item) => item.username.toLowerCase() === username.toLowerCase()
+  );
+  const existsInRegistered = registered.some(
+    (item) => item.username.toLowerCase() === username.toLowerCase()
+  );
+
+  if (existsInDemo || existsInRegistered) {
+    return { success: false, message: "Username already exists" };
+  }
+
+  const newUser: DemoCredential = {
+    role,
+    username,
+    password,
+    displayName,
+    hospitalId,
+    doctorId,
+    email,
+    phone,
+  };
+
+  registered.push(newUser);
+  localStorage.setItem("registered_users", JSON.stringify(registered));
+  return { success: true, message: "Account created successfully" };
+};
+
 export const validateDemoCredential = (
   role: UserRole,
   username: string,
   password: string
 ): AuthUser | null => {
-  const match = demoCredentials.find(
+  const registered = getRegisteredUsers();
+  const allCredentials = [...demoCredentials, ...registered];
+
+  const match = allCredentials.find(
     (item) =>
       item.role === role &&
       item.username.toLowerCase() === username.toLowerCase() &&
@@ -131,6 +197,8 @@ export const validateDemoCredential = (
     activeHospitalId: match.hospitalIds?.[0] ?? match.hospitalId,
     doctorId: match.doctorId,
     displayName: match.displayName,
+    email: match.email,
+    phone: match.phone,
   };
 };
 
