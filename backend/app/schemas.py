@@ -59,9 +59,11 @@ class DoctorResponse(BaseModel):
 
 # Appointment Model
 class AppointmentCreate(BaseModel):
-    patientId: str
-    doctorId: int
-    hospitalId: int
+    patientId: Optional[int] = None
+    doctorId: Optional[int] = None
+    hospitalId: Optional[int] = None
+    patientName: Optional[str] = None
+    doctorName: Optional[str] = None
     date: Optional[str] = None
     time: Optional[str] = None
     type: Optional[str] = "Consultation"
@@ -71,18 +73,46 @@ class AppointmentCreate(BaseModel):
 
 class AppointmentResponse(BaseModel):
     id: int
-    patientId: str
-    doctorId: int
-    hospitalId: int
+    patientId: Optional[int] = None
+    doctorId: Optional[int] = None
+    hospitalId: Optional[int] = None
     date: Optional[str] = None
     time: Optional[str] = None
     type: Optional[str] = None
     mode: Optional[str] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+    patientName: Optional[str] = None
+    doctorName: Optional[str] = None
     
     class Config:
         from_attributes = True
+
+class PastAppointmentResponse(BaseModel):
+    id: int
+    patientId: Optional[int] = None
+    doctorId: Optional[int] = None
+    hospitalId: Optional[int] = None
+    patientName: Optional[str] = None
+    doctorName: Optional[str] = None
+    date: Optional[str] = None
+    time: Optional[str] = None
+    type: Optional[str] = None
+    mode: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    completionOrCancellationDate: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+class AppointmentUpdate(BaseModel):
+    date: Optional[str] = None
+    time: Optional[str] = None
+    type: Optional[str] = None
+    mode: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
 
 # Billing Model
 class BillingCreate(BaseModel):
@@ -105,6 +135,7 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     success: bool
+    id: Optional[int] = None
     username: Optional[str] = None
     role: Optional[str] = None
     displayName: Optional[str] = None
@@ -132,6 +163,41 @@ class Notification(BaseModel):
     title: str
     message: str
     type: str
+
+# ================== PRESCRIPTION MODELS ==================
+class PrescriptionCreate(BaseModel):
+    doctorId: Optional[int] = None
+    doctorName: Optional[str] = None
+    hospitalId: Optional[int] = None
+    patientId: Optional[int] = None
+    patientName: Optional[str] = None
+    medicineName: Optional[str] = None
+    dosage: Optional[str] = None
+    timing: Optional[str] = None
+    durationDays: Optional[str] = None
+    testsRecommended: Optional[str] = None
+    followUpDate: Optional[str] = None
+    notes: Optional[str] = None
+
+class PrescriptionResponse(BaseModel):
+    id: int
+    doctorId: Optional[int] = None
+    doctorName: Optional[str] = None
+    hospitalId: Optional[int] = None
+    patientId: Optional[int] = None
+    patientName: Optional[str] = None
+    medicineName: Optional[str] = None
+    dosage: Optional[str] = None
+    timing: Optional[str] = None
+    durationDays: Optional[str] = None
+    testsRecommended: Optional[str] = None
+    followUpDate: Optional[str] = None
+    notes: Optional[str] = None
+    createdAt: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
 
 # ================== DASHBOARD MODELS ==================
 class AdminDashboard(BaseModel):

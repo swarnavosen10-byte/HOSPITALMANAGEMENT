@@ -29,3 +29,10 @@ export const getCurrentHospitalId = () => {
 
   return user.activeHospitalId ?? user.hospitalId ?? user.hospitalIds?.[0] ?? 1;
 };
+
+export const getPatientScope = () => {
+  const user = getUser();
+  return {
+    patientId: user?.id ?? 1
+  };
+};

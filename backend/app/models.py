@@ -49,9 +49,11 @@ class Appointment(Base):
     __tablename__ = "appointments"
 
     id = Column(Integer, primary_key=True, index=True)
-    patientId = Column("patientId", String)
-    doctorId = Column("doctorId", Integer)
-    hospitalId = Column("hospitalId", Integer)
+    patientId = Column("patientId", Integer, nullable=True)
+    doctorId = Column("doctorId", Integer, nullable=True)
+    hospitalId = Column("hospitalId", Integer, nullable=True)
+    patientName = Column("patientName", String, nullable=True)
+    doctorName = Column("doctorName", String, nullable=True)
     date = Column(String, nullable=True)
     time = Column(String, nullable=True)
     type = Column(String, nullable=True)
@@ -81,6 +83,44 @@ class User(Base):
     verification_status = Column(String, default="APPROVED")
     doctorId = Column("doctorId", Integer, nullable=True)
     hospitalId = Column("hospitalId", Integer, nullable=True)
+
+# ================== PAST APPOINTMENT MODEL ==================
+class PastAppointment(Base):
+    __tablename__ = "past_appointments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patientId = Column("patientId", Integer, nullable=True)
+    doctorId = Column("doctorId", Integer, nullable=True)
+    hospitalId = Column("hospitalId", Integer, nullable=True)
+    patientName = Column("patientName", String, nullable=True)
+    doctorName = Column("doctorName", String, nullable=True)
+    date = Column(String, nullable=True)
+    time = Column(String, nullable=True)
+    type = Column(String, nullable=True)
+    mode = Column(String, nullable=True)
+    status = Column(String, nullable=True)
+    notes = Column(String, nullable=True)
+    completionOrCancellationDate = Column("completionOrCancellationDate", String, nullable=True)
+
+# ================== PRESCRIPTION MODEL ==================
+class Prescription(Base):
+    __tablename__ = "prescriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    doctorId = Column("doctorId", Integer, nullable=True)
+    doctorName = Column("doctorName", String, nullable=True)
+    hospitalId = Column("hospitalId", Integer, nullable=True)
+    patientId = Column("patientId", Integer, nullable=True)
+    patientName = Column("patientName", String, nullable=True)
+    medicineName = Column("medicineName", String, nullable=True)
+    dosage = Column("dosage", String, nullable=True)
+    timing = Column("timing", String, nullable=True)
+    durationDays = Column("durationDays", String, nullable=True)
+    testsRecommended = Column("testsRecommended", String, nullable=True)
+    followUpDate = Column("followUpDate", String, nullable=True)
+    notes = Column("notes", String, nullable=True)
+    createdAt = Column("createdAt", String, nullable=True)
+
 
 Base.metadata.create_all(bind=engine)
 

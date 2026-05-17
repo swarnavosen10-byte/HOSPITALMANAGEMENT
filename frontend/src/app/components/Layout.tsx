@@ -73,6 +73,7 @@ export default function Layout() {
     return [
       { to: "/patient-dashboard", label: "Dashboard", end: true },
       { to: "my-appointments", label: "My Appointments" },
+      { to: "prescriptions", label: "My Prescriptions" },
     ];
   }, [user?.role]);
 

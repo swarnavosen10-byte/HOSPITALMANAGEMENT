@@ -1,6 +1,6 @@
+import { useState, useEffect } from "react";
 import { AlertTriangle, CalendarClock, ClipboardList, FileText, Users } from "lucide-react";
 import {
-  getAppointmentsByDoctor,
   getDoctorById,
   getDoctorNotifications,
   getDoctorSchedulesByDoctor,
@@ -8,27 +8,68 @@ import {
   getPatientsByHospital,
 } from "../../data";
 import { getDoctorScope } from "../../utils/roleScope";
-
-const isToday = (date: string) => date === new Date().toISOString().slice(0, 10);
+import { api } from "../../services/api.ts";
+import { getUser } from "../../utils/auth";
 
 export default function DoctorDashboard() {
   const { doctorId, hospitalId } = getDoctorScope();
   const doctor = getDoctorById(doctorId);
   const hospital = getHospitalById(hospitalId);
+  const user = getUser();
 
-  const appointments = getAppointmentsByDoctor(doctorId).filter((appointment) => appointment.hospitalId === hospitalId);
+  const [activeApts, setActiveApts] = useState<any[]>([]);
+  const [pastApts, setPastApts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const schedules = getDoctorSchedulesByDoctor(doctorId).filter((schedule) => schedule.hospitalId === hospitalId);
   const notifications = getDoctorNotifications(doctorId).filter((notification) => notification.hospitalId === hospitalId);
   const patients = getPatientsByHospital(hospitalId);
 
-  const patientCount = new Set(appointments.map((appointment) => appointment.patientId)).size;
-  const todayAppointments = appointments.filter((appointment) => isToday(appointment.date));
-  const upcomingAppointments = [...appointments]
-    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))
-    .slice(0, 6);
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [activeData, pastData] = await Promise.all([
+          api.get<any[]>("/appointments"),
+          api.get<any[]>("/past_appointments")
+        ]);
 
-  const emergencyCases = notifications.filter((notification) => notification.type === "emergency_alert").length;
-  const pendingReports = appointments.filter((appointment) => appointment.status === "Completed").length;
+        const filteredActive = activeData.filter(
+          (apt: any) =>
+            String(apt.doctorId) === String(doctorId) &&
+            Number(apt.hospitalId) === Number(hospitalId)
+        );
+
+        const filteredPast = pastData.filter(
+          (apt: any) =>
+            String(apt.doctorId) === String(doctorId) &&
+            Number(apt.hospitalId) === Number(hospitalId)
+        );
+
+        setActiveApts(filteredActive);
+        setPastApts(filteredPast);
+      } catch (err) {
+        console.error("Failed to load doctor dashboard stats:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [doctorId, hospitalId]);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayAppointments = activeApts.filter((apt) => apt.date === todayStr);
+  const upcomingAppointments = [...activeApts]
+    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+
+  const allPatientIds = new Set([
+    ...activeApts.map((a) => a.patientId),
+    ...pastApts.map((a) => a.patientId)
+  ]);
+  const patientCount = allPatientIds.size;
+
+  const emergencyCases = notifications.filter((notification) => notification.type === "emergency_alert").length || 0;
+  const pendingReports = pastApts.filter((apt) => apt.status === "Completed").length;
 
   const scheduleSummary = schedules
     .slice(0, 4)
@@ -39,15 +80,15 @@ export default function DoctorDashboard() {
     { title: "Upcoming Appointments", value: upcomingAppointments.length, subtitle: "Next scheduled visits", icon: ClipboardList },
     { title: "Patient Count", value: patientCount, subtitle: "Unique patients", icon: Users },
     { title: "Emergency Cases", value: emergencyCases, subtitle: "Priority notifications", icon: AlertTriangle },
-    { title: "Pending Reports", value: pendingReports, subtitle: "Consultations to finalize", icon: FileText },
+    { title: "Pending Reports", value: pendingReports, subtitle: "Consultations finalized", icon: FileText },
   ];
 
   return (
     <div className="page-content space-y-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">Doctor Portal</p>
-        <h1 className="mt-2 text-3xl font-extrabold text-slate-900">Welcome, {doctor?.name ?? "Doctor"}</h1>
-        <p className="text-slate-600">{hospital?.name ?? "Selected hospital"} workspace for your appointments, schedule, and clinical tasks.</p>
+        <h1 className="mt-2 text-3xl font-extrabold text-slate-900">Welcome, Dr. {doctor?.name ?? user?.displayName ?? user?.username ?? "Doctor"}</h1>
+        <p className="text-slate-600">{hospital?.name ?? "Apollo Hospital"} workspace for your appointments, schedule, and clinical tasks.</p>
       </div>
 
       <div className="stagger grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -59,7 +100,7 @@ export default function DoctorDashboard() {
                 <p className="text-sm font-semibold text-slate-600">{card.title}</p>
                 <span className="rounded-lg bg-cyan-50 p-2 text-cyan-700"><Icon size={14} /></span>
               </div>
-              <p className="text-2xl font-extrabold text-slate-900">{card.value}</p>
+              <p className="text-2xl font-extrabold text-slate-900">{loading ? "..." : card.value}</p>
               <p className="text-xs text-slate-500">{card.subtitle}</p>
             </div>
           );
@@ -69,13 +110,15 @@ export default function DoctorDashboard() {
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.5fr_1fr]">
         <div className="surface-card overflow-x-auto p-5">
           <h2 className="mb-4 text-lg font-bold text-slate-900">Upcoming Appointments</h2>
-          {upcomingAppointments.length === 0 ? (
+          {loading ? (
+            <p className="p-4 text-sm text-slate-500">Loading appointments queue...</p>
+          ) : upcomingAppointments.length === 0 ? (
             <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No appointments found.</p>
           ) : (
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">ID</th>
+                  <th className="px-4 py-3">Slot</th>
                   <th className="px-4 py-3">Patient</th>
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Time</th>
@@ -83,15 +126,19 @@ export default function DoctorDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {upcomingAppointments.map((appointment) => {
+                {upcomingAppointments.map((appointment, index) => {
                   const patient = patients.find((item) => item.id === appointment.patientId);
                   return (
                     <tr key={appointment.id} className="border-t border-slate-100 transition hover:bg-slate-50/70">
-                      <td className="px-4 py-3 font-semibold text-cyan-700">{appointment.id}</td>
-                      <td className="px-4 py-3 text-slate-700">{patient?.name ?? appointment.patientId}</td>
+                      <td className="px-4 py-3 font-semibold text-cyan-700">{index + 1}</td>
+                      <td className="px-4 py-3 text-slate-700">{appointment.patientName ?? patient?.name ?? `Patient #${appointment.patientId}`}</td>
                       <td className="px-4 py-3 text-slate-700">{appointment.date}</td>
                       <td className="px-4 py-3 text-slate-700">{appointment.time}</td>
-                      <td className="px-4 py-3"><span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800">{appointment.status}</span></td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800">
+                          {appointment.status}
+                        </span>
+                      </td>
                     </tr>
                   );
                 })}
