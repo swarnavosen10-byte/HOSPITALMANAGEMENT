@@ -25,6 +25,7 @@ const isToday = (date: string) => {
 
 export default function StaffDashboard() {
   const hospitalId = getStaffHospitalId();
+  const hospital = getHospitalById(hospitalId);
   const [pendingDoctors, setPendingDoctors] = useState<any[]>([]);
   const [loadingPending, setLoadingPending] = useState(false);
   const [actioningUsername, setActioningUsername] = useState<string | null>(null);
@@ -47,15 +48,23 @@ export default function StaffDashboard() {
 
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<any | null>(null);
-  const [specialization, setSpecialization] = useState("General Medicine");
-  const [department, setDepartment] = useState("Outpatient");
+  const [specialization, setSpecialization] = useState("Cardiology");
+  const [department, setDepartment] = useState("Cardiology");
   const [fees, setFees] = useState(500);
   const [experience, setExperience] = useState(2);
+  const departments = hospital?.departments.map((d: any) => d.name) || [
+    "Cardiology",
+    "Neurology",
+    "Pediatrics",
+    "Emergency",
+    "Outpatient"
+  ];
 
   const handleApproveClick = (user: any) => {
     setSelectedDoctor(user);
-    setSpecialization("General Medicine");
-    setDepartment("Outpatient");
+    const defaultDept = hospital?.departments[0]?.name || "Cardiology";
+    setSpecialization(defaultDept);
+    setDepartment(defaultDept);
     setFees(500);
     setExperience(2);
     setShowSetupModal(true);
@@ -75,7 +84,6 @@ export default function StaffDashboard() {
     }
   };
 
-  const hospital = getHospitalById(hospitalId);
   const patients = getPatientsByHospital(hospitalId);
   const doctors = getDoctorsByHospital(hospitalId);
   const appointments = getAppointmentsByHospital(hospitalId);
@@ -336,24 +344,28 @@ export default function StaffDashboard() {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Medical Specialization</label>
-                <input
-                  type="text"
+                <select
                   value={specialization}
                   onChange={(e) => setSpecialization(e.target.value)}
-                  placeholder="e.g. Cardiologist, Neurologist"
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
-                />
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none bg-white"
+                >
+                  {departments.map((dept) => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Clinical Department</label>
-                <input
-                  type="text"
+                <select
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
-                  placeholder="e.g. Cardiology, Neurology, Pediatrics"
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
-                />
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none bg-white"
+                >
+                  {departments.map((dept) => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

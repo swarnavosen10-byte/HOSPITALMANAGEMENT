@@ -13,7 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import { Activity, Building2, Stethoscope, Users, UserCheck, ShieldAlert, Loader2 } from "lucide-react";
-import { adminPatients, doctors, hospitals } from "../../data";
+import { adminPatients, doctors, hospitals, getHospitalById } from "../../data";
 import { api } from "../../services/api";
 
 type EmergencyStatus = "Active" | "Busy" | "Unavailable";
@@ -59,16 +59,18 @@ export default function Dashboard() {
 
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<any | null>(null);
-  const [specialization, setSpecialization] = useState("General Medicine");
-  const [department, setDepartment] = useState("Outpatient");
+  const [specialization, setSpecialization] = useState("Cardiology");
+  const [department, setDepartment] = useState("Cardiology");
   const [fees, setFees] = useState(500);
   const [experience, setExperience] = useState(2);
 
   const handleApproveClick = (user: any) => {
     if (user.role === "doctor") {
       setSelectedDoctor(user);
-      setSpecialization("General Medicine");
-      setDepartment("Outpatient");
+      const docHospital = getHospitalById(user.hospitalId);
+      const defaultDept = docHospital?.departments[0]?.name || "Cardiology";
+      setSpecialization(defaultDept);
+      setDepartment(defaultDept);
       setFees(500);
       setExperience(2);
       setShowSetupModal(true);
@@ -583,95 +585,109 @@ export default function Dashboard() {
       </div>
 
       {/* Doctor Clinical Onboarding Setup Modal */}
-      {showSetupModal && selectedDoctor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 transform scale-up transition duration-300">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-4">
-              <span className="rounded-xl bg-amber-50 p-2.5 text-amber-700">
-                <Stethoscope size={20} />
-              </span>
-              <div>
-                <h3 className="font-extrabold text-slate-900 text-lg">Verify & Setup Doctor</h3>
-                <p className="text-xs text-slate-500">Configure medical credentials for {selectedDoctor.displayName || selectedDoctor.username}.</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Medical Specialization</label>
-                <input
-                  type="text"
-                  value={specialization}
-                  onChange={(e) => setSpecialization(e.target.value)}
-                  placeholder="e.g. Cardiologist, Neurologist"
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Clinical Department</label>
-                <input
-                  type="text"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  placeholder="e.g. Cardiology, Neurology, Pediatrics"
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+      {showSetupModal && selectedDoctor && (() => {
+        const docHospital = getHospitalById(selectedDoctor.hospitalId);
+        const docDepartments = docHospital?.departments.map((d: any) => d.name) || [
+          "Cardiology",
+          "Neurology",
+          "Pediatrics",
+          "Emergency",
+          "Outpatient"
+        ];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+            <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 transform scale-up transition duration-300">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-4">
+                <span className="rounded-xl bg-amber-50 p-2.5 text-amber-700">
+                  <Stethoscope size={20} />
+                </span>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Consultation Fees (INR)</label>
-                  <input
-                    type="number"
-                    value={fees}
-                    onChange={(e) => setFees(Number(e.target.value))}
-                    min={0}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
-                  />
+                  <h3 className="font-extrabold text-slate-900 text-lg">Verify & Setup Doctor</h3>
+                  <p className="text-xs text-slate-500">Configure medical credentials for {selectedDoctor.displayName || selectedDoctor.username}.</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Medical Specialization</label>
+                  <select
+                    value={specialization}
+                    onChange={(e) => setSpecialization(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none bg-white"
+                  >
+                    {docDepartments.map((dept) => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Experience (Years)</label>
-                  <input
-                    type="number"
-                    value={experience}
-                    onChange={(e) => setExperience(Number(e.target.value))}
-                    min={0}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
-                  />
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Clinical Department</label>
+                  <select
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none bg-white"
+                  >
+                    {docDepartments.map((dept) => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Consultation Fees (INR)</label>
+                    <input
+                      type="number"
+                      value={fees}
+                      onChange={(e) => setFees(Number(e.target.value))}
+                      min={0}
+                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Experience (Years)</label>
+                    <input
+                      type="number"
+                      value={experience}
+                      onChange={(e) => setExperience(Number(e.target.value))}
+                      min={0}
+                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-800 focus:border-cyan-700 focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex gap-3 mt-6 border-t border-slate-100 pt-4">
-              <button
-                onClick={() => {
-                  setShowSetupModal(false);
-                  setSelectedDoctor(null);
-                }}
-                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleApprove(selectedDoctor.username, { specialization, department, fees, experience })}
-                disabled={actioningUsername === selectedDoctor.username}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-700 py-2.5 text-xs font-bold text-white hover:bg-cyan-800 active:scale-95 transition disabled:opacity-50"
-              >
-                {actioningUsername === selectedDoctor.username ? (
-                  <>
-                    <Loader2 size={12} className="animate-spin" />
-                    <span>Approving...</span>
-                  </>
-                ) : (
-                  <span>Save & Verify</span>
-                )}
-              </button>
+              <div className="flex gap-3 mt-6 border-t border-slate-100 pt-4">
+                <button
+                  onClick={() => {
+                    setShowSetupModal(false);
+                    setSelectedDoctor(null);
+                  }}
+                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleApprove(selectedDoctor.username, { specialization, department, fees, experience })}
+                  disabled={actioningUsername === selectedDoctor.username}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-700 py-2.5 text-xs font-bold text-white hover:bg-cyan-800 active:scale-95 transition disabled:opacity-50"
+                >
+                  {actioningUsername === selectedDoctor.username ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" />
+                      <span>Approving...</span>
+                    </>
+                  ) : (
+                    <span>Save & Verify</span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
