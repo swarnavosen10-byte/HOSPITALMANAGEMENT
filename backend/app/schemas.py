@@ -51,6 +51,8 @@ class DoctorResponse(BaseModel):
     fees: Optional[int] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    username: Optional[str] = None
+    tempPassword: Optional[str] = None
     
     class Config:
         from_attributes = True

@@ -3,8 +3,9 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 from app.dependencies import get_db, verify_admin_key
-from app.models import Doctor, Appointment, Patient
+from app.models import Doctor, Appointment, Patient, User
 from app.schemas import DoctorCreate, DoctorResponse, DoctorDashboard, AppointmentResponse, PatientResponse
+from app.utils.security import hash_password
 
 router = APIRouter()
 
@@ -16,7 +17,7 @@ def get_doctors(db: Session = Depends(get_db)):
 
 @router.post("/doctors", response_model=DoctorResponse)
 def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db), _: bool = Depends(verify_admin_key)):
-    """Create a new doctor - Requires x-api-key header"""
+    """Create a new doctor - Requires x-api-key header and automatically provisions a User credentials account"""
     new_doctor = Doctor(
         name=doctor.name, 
         specialization=doctor.specialization,
@@ -31,6 +32,39 @@ def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db), _: bool =
     db.add(new_doctor)
     db.commit()
     db.refresh(new_doctor)
+
+    # Automatically generate a unique, clean username
+    username_base = "dr_" + doctor.name.replace(" ", "_").replace(".", "").lower()
+    if not username_base:
+        username_base = f"doctor_{new_doctor.id}"
+        
+    username = username_base
+    counter = 1
+    while db.query(User).filter(User.username.ilike(username)).first() is not None:
+        username = f"{username_base}{counter}"
+        counter += 1
+
+    temp_password = "welcome123"
+    hashed_password = hash_password(temp_password)
+
+    new_user = User(
+        username=username,
+        password_hash=hashed_password,
+        displayName=doctor.name,
+        role="doctor",
+        email=doctor.email,
+        phone=doctor.phone,
+        verification_status="APPROVED", # Manually added by staff means immediately active
+        doctorId=new_doctor.id,
+        hospitalId=doctor.hospitalId
+    )
+    db.add(new_user)
+    db.commit()
+
+    # Dynamic properties for Pydantic schema return
+    new_doctor.username = username
+    new_doctor.tempPassword = temp_password
+
     return new_doctor
 
 @router.delete("/doctors/{doctor_id}")

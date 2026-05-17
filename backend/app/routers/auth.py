@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 from app.dependencies import get_db
 from app.models import Patient, Doctor, Appointment, Billing, User
 from app.schemas import LoginRequest, LoginResponse, AdminDashboard, UserRegisterRequest
@@ -198,3 +199,71 @@ def get_admin_dashboard(db: Session = Depends(get_db)):
         total_revenue=total_revenue,
         total_hospitals=total_hospitals
     )
+
+@router.get("/admin/pending-users")
+def get_pending_users(hospitalId: int = None, db: Session = Depends(get_db)):
+    """Get all users with PENDING verification status, optionally filtered by hospitalId"""
+    query = db.query(User).filter(User.verification_status == "PENDING")
+    if hospitalId is not None:
+        query = query.filter(User.role == "doctor", User.hospitalId == hospitalId)
+    users = query.all()
+    from app.models import Hospital
+    result = []
+    for u in users:
+        hospital_name = "N/A"
+        if u.hospitalId:
+            h = db.query(Hospital).filter(Hospital.id == u.hospitalId).first()
+            if h:
+                hospital_name = h.name
+        result.append({
+            "username": u.username,
+            "displayName": u.displayName,
+            "role": u.role,
+            "email": u.email,
+            "phone": u.phone,
+            "verification_status": u.verification_status,
+            "hospitalId": u.hospitalId,
+            "hospitalName": hospital_name,
+            "doctorId": u.doctorId
+        })
+    return result
+
+class UserApprovalRequest(BaseModel):
+    specialization: str = None
+    department: str = None
+    fees: int = None
+    experience: int = None
+
+@router.post("/admin/approve-user/{username}")
+def approve_user(username: str, request: UserApprovalRequest = None, db: Session = Depends(get_db)):
+    """Approve a pending user's verification status by username, optionally configuring doctor details"""
+    user = db.query(User).filter(User.username.ilike(username)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.verification_status = "APPROVED"
+    
+    # If the user is a doctor, update their doctor profile details and set them as Available
+    if user.role == "doctor" and user.doctorId:
+        doctor = db.query(Doctor).filter(Doctor.id == user.doctorId).first()
+        if doctor:
+            if request:
+                if request.specialization:
+                    doctor.specialization = request.specialization
+                if request.department:
+                    doctor.department = request.department
+                if request.fees is not None:
+                    doctor.fees = request.fees
+                if request.experience is not None:
+                    doctor.experience = request.experience
+            doctor.availability = "Available" # Doctor becomes active and bookable
+            
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "success": True,
+        "username": user.username,
+        "verification_status": user.verification_status,
+        "message": f"User {username} approved and profile configured successfully"
+    }

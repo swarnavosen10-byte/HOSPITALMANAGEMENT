@@ -10,6 +10,7 @@ export default function StaffDoctors() {
   const [departmentFilter, setDepartmentFilter] = useState("All");
   const [availabilityFilter, setAvailabilityFilter] = useState("All");
   const [loading, setLoading] = useState(true);
+  const [createdCredentials, setCreatedCredentials] = useState<{ username: string; tempPassword: string; name: string } | null>(null);
 
   const [doctorRows, setDoctorRows] = useState<Doctor[]>([]);
   const [form, setForm] = useState({
@@ -92,8 +93,16 @@ export default function StaffDoctors() {
         email: form.email.trim(),
       };
 
-      await api.post("/doctors", payload);
+      const response = await api.post<any>("/doctors", payload);
       await fetchDoctors();
+
+      if (response && response.username && response.tempPassword) {
+        setCreatedCredentials({
+          username: response.username,
+          tempPassword: response.tempPassword,
+          name: response.name,
+        });
+      }
 
       setForm({
         name: "",
@@ -117,6 +126,38 @@ export default function StaffDoctors() {
         <h1 className="mt-2 text-3xl font-extrabold text-slate-900">Doctor Management</h1>
         <p className="text-slate-600">Track specialization, schedule load, and availability for {hospital?.name ?? "your hospital"} doctors.</p>
       </div>
+
+      {createdCredentials && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 shadow-sm relative overflow-hidden animate-fade-in">
+          <div className="absolute top-4 right-4">
+            <button
+              onClick={() => setCreatedCredentials(null)}
+              className="text-emerald-700 hover:text-emerald-950 text-xs font-bold bg-white/80 border border-emerald-100 hover:bg-white rounded-lg px-2.5 py-1 transition shadow-sm active:scale-95"
+            >
+              Dismiss
+            </button>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="rounded-full bg-emerald-500/10 border border-emerald-500/25 p-2 text-emerald-800 font-extrabold text-sm flex items-center justify-center h-8 w-8">✓</span>
+            <div>
+              <h3 className="text-sm font-bold text-emerald-900">Doctor Credentials Provisioned Successfully!</h3>
+              <p className="text-xs text-emerald-700 mt-0.5">Please share these secure, temporary sign-in credentials with {createdCredentials.name}:</p>
+              
+              <div className="mt-3.5 flex flex-wrap gap-4 bg-white/90 rounded-xl border border-emerald-100/60 p-4 text-xs shadow-sm">
+                <div>
+                  <span className="font-bold text-slate-500 block uppercase tracking-wider text-[9px] mb-1">Login Username</span>
+                  <span className="font-mono font-bold text-slate-900 text-sm select-all bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 block w-fit">{createdCredentials.username}</span>
+                </div>
+                <div className="border-l border-emerald-100/60 pl-4">
+                  <span className="font-bold text-slate-500 block uppercase tracking-wider text-[9px] mb-1">Temporary Password</span>
+                  <span className="font-mono font-bold text-slate-900 text-sm select-all bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 block w-fit">{createdCredentials.tempPassword}</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-3.5">💡 Tip: Clicking on the username or password box selects the entire text for easy copying.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="surface-card grid grid-cols-1 gap-3 p-4 md:grid-cols-2 xl:grid-cols-6">
         <div>
