@@ -1,8 +1,12 @@
+import sys
 import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from database import Doctor, Base
+from app.database import Base
+from app.models import Doctor
 
 load_dotenv()
 
