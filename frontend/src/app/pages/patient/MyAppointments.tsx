@@ -31,7 +31,7 @@ export default function MyAppointments() {
     setLoading(true);
     try {
       const user = getUser();
-      const patientId = user?.username ?? "patient";
+      const patientId = user?.id ?? 999;
 
       // Fetch both appointments and doctors to resolve names
       const [appointmentsData, doctorsData] = await Promise.all([
@@ -41,7 +41,7 @@ export default function MyAppointments() {
 
       // Filter appointments for this patient
       const myAppointments = appointmentsData
-        .filter((apt: any) => String(apt.patientId) === String(patientId))
+        .filter((apt: any) => Number(apt.patientId) === Number(patientId))
         .map((apt: any) => {
           const doctor = doctorsData.find((d: any) => d.id === apt.doctorId) || 
                          mockDoctors.find((d) => d.id === apt.doctorId);
@@ -80,13 +80,10 @@ export default function MyAppointments() {
 
   const updateStatus = async (
     appointmentId: string,
-    _status: "Scheduled" | "Completed" | "Cancelled"
+    status: "Scheduled" | "Completed" | "Cancelled"
   ) => {
     try {
-      // In a real app, we'd have a PUT endpoint. 
-      // For now, we'll just log or implement if backend supports it.
-      // Assuming backend might need an update for status changes.
-      await api.delete(`/appointments/${appointmentId}`); // Basic implementation: cancel = delete
+      await api.put(`/appointments/${appointmentId}`, { status });
       await fetchData();
     } catch (err) {
       console.error("Failed to update status:", err);

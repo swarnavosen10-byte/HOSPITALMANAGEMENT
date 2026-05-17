@@ -1,15 +1,26 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
-  getAppointmentsByHospital,
   getDoctorsByHospital,
   getPatientsByHospital,
-  type AppointmentRecord,
   type AppointmentStatus,
 } from "../../data";
 import { getStaffHospitalId } from "../../utils/roleScope";
+import { api } from "../../services/api.ts";
 
-type AppointmentWithMeta = AppointmentRecord & {
+type AppointmentWithMeta = {
+  id: any;
+  patientId: string;
+  doctorId: number;
+  hospitalId: number;
+  date: string;
+  time: string;
+  status: AppointmentStatus;
+  type: string;
+  mode: string;
+  notes: string;
   rescheduleNote?: string;
+  patientName?: string;
+  doctorName?: string;
 };
 
 const appointmentActionStatus: Record<string, AppointmentStatus> = {
@@ -24,13 +35,47 @@ export default function StaffAppointments() {
   const hospitalId = getStaffHospitalId();
   const [statusFilter, setStatusFilter] = useState<AppointmentStatus | "All">("All");
   const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const patients = getPatientsByHospital(hospitalId);
   const doctors = getDoctorsByHospital(hospitalId);
 
-  const [appointmentRows, setAppointmentRows] = useState<AppointmentWithMeta[]>(
-    getAppointmentsByHospital(hospitalId)
-  );
+  const [appointmentRows, setAppointmentRows] = useState<AppointmentWithMeta[]>([]);
+
+  const fetchAppointments = async () => {
+    setLoading(true);
+    try {
+      const data = await api.get<any[]>("/appointments");
+      const filtered = data.filter((apt: any) => Number(apt.hospitalId) === Number(hospitalId));
+      
+      const statusOrder: Record<string, number> = {
+        "In Progress": 1,
+        "Pending Approval": 2,
+        "Approved": 3,
+        "Scheduled": 4,
+        "Completed": 5,
+        "No-show": 6,
+        "Cancelled": 7,
+        "Rejected": 8,
+      };
+
+      filtered.sort((a: any, b: any) => {
+        const orderA = statusOrder[a.status] ?? 99;
+        const orderB = statusOrder[b.status] ?? 99;
+        return orderA - orderB;
+      });
+
+      setAppointmentRows(filtered);
+    } catch (err) {
+      console.error("Failed to fetch appointments:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAppointments();
+  }, [hospitalId]);
 
   const filteredAppointments = useMemo(() => {
     return appointmentRows.filter((appointment) => {
@@ -39,7 +84,7 @@ export default function StaffAppointments() {
       const normalized = query.toLowerCase().trim();
 
       const matchesQuery =
-        appointment.id.toLowerCase().includes(normalized) ||
+        String(appointment.id).toLowerCase().includes(normalized) ||
         patient?.name.toLowerCase().includes(normalized) ||
         doctor?.name.toLowerCase().includes(normalized);
 
@@ -48,18 +93,33 @@ export default function StaffAppointments() {
     });
   }, [appointmentRows, doctors, patients, query, statusFilter]);
 
-  const updateAppointment = (id: string, patch: Partial<AppointmentWithMeta>) => {
-    setAppointmentRows((prev) => prev.map((appointment) => (appointment.id === id ? { ...appointment, ...patch } : appointment)));
+  const updateAppointment = async (id: any, patch: Partial<AppointmentWithMeta>) => {
+    try {
+      await api.put(`/appointments/${id}`, patch);
+      await fetchAppointments();
+    } catch (err) {
+      console.error("Failed to update appointment:", err);
+    }
   };
 
-  const handleReschedule = (appointment: AppointmentWithMeta) => {
-    const [hourText, minuteText] = appointment.time.split(":");
-    const nextHour = String((Number(hourText) + 1) % 24).padStart(2, "0");
-    updateAppointment(appointment.id, {
-      time: `${nextHour}:${minuteText}`,
-      status: "Scheduled",
-      rescheduleNote: `Shifted from ${appointment.time} to ${nextHour}:${minuteText}`,
-    });
+  const handleReschedule = async (appointment: AppointmentWithMeta) => {
+    // Support both standard format e.g. "10:00 AM" and "10:00"
+    const [timePart, ampm] = appointment.time.split(" ");
+    const [hourText, minuteText] = timePart.split(":");
+    let hour = Number(hourText);
+    const nextHour = String((hour + 1) % 12 || 12).padStart(2, "0");
+    const newTime = ampm ? `${nextHour}:${minuteText} ${ampm}` : `${nextHour}:${minuteText}`;
+    
+    try {
+      await api.put(`/appointments/${appointment.id}`, {
+        time: newTime,
+        status: "Scheduled",
+        notes: `Rescheduled from ${appointment.time} to ${newTime}`
+      });
+      await fetchAppointments();
+    } catch (err) {
+      console.error("Failed to reschedule:", err);
+    }
   };
 
   const statusOptions: Array<AppointmentStatus | "All"> = [
@@ -104,55 +164,67 @@ export default function StaffAppointments() {
       </div>
 
       <div className="surface-card overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Appointment</th>
-              <th className="px-4 py-3">Patient</th>
-              <th className="px-4 py-3">Doctor</th>
-              <th className="px-4 py-3">Date & Time</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredAppointments.map((appointment) => {
-              const patient = patients.find((item) => item.id === appointment.patientId);
-              const doctor = doctors.find((item) => item.id === appointment.doctorId);
+        {loading ? (
+          <div className="p-10 text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-cyan-700 border-t-transparent"></div>
+            <p className="mt-2 text-sm text-slate-500">Loading appointments...</p>
+          </div>
+        ) : (
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Appointment</th>
+                <th className="px-4 py-3">Patient</th>
+                <th className="px-4 py-3">Doctor</th>
+                <th className="px-4 py-3">Date & Time</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                let activeCount = 0;
+                return filteredAppointments.map((appointment) => {
+                  const patient = patients.find((item) => item.id === appointment.patientId);
+                  const doctor = doctors.find((item) => item.id === appointment.doctorId);
+                  const isActive = ["In Progress", "Pending Approval", "Approved", "Scheduled"].includes(appointment.status);
+                  const displayNo = isActive ? ++activeCount : "—";
 
-              return (
-                <tr key={appointment.id} className="border-t border-slate-100 align-top transition hover:bg-slate-50/70">
-                  <td className="px-4 py-3">
-                    <p className="font-semibold text-cyan-700">{appointment.id}</p>
-                    {appointment.rescheduleNote && (
-                      <p className="text-xs text-amber-600">{appointment.rescheduleNote}</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-slate-700">{patient?.name ?? appointment.patientId}</td>
-                  <td className="px-4 py-3 text-slate-700">{doctor?.name ?? `Dr. ${appointment.doctorId}`}</td>
-                  <td className="px-4 py-3 text-slate-700">{appointment.date} • {appointment.time}</td>
-                  <td className="px-4 py-3">
-                    <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800">
-                      {appointment.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <button onClick={() => updateAppointment(appointment.id, { status: appointmentActionStatus.approve })} className="rounded-lg bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100">Approve</button>
-                      <button onClick={() => updateAppointment(appointment.id, { status: appointmentActionStatus.reject })} className="rounded-lg bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100">Reject</button>
-                      <button onClick={() => handleReschedule(appointment)} className="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-100">Reschedule</button>
-                      <button onClick={() => updateAppointment(appointment.id, { status: appointmentActionStatus.cancel })} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">Cancel</button>
-                      <button onClick={() => updateAppointment(appointment.id, { status: appointmentActionStatus.complete })} className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">Complete</button>
-                      <button onClick={() => updateAppointment(appointment.id, { status: appointmentActionStatus.noShow })} className="rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-700 transition hover:bg-orange-100">No-show</button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  return (
+                    <tr key={appointment.id} className="border-t border-slate-100 align-top transition hover:bg-slate-50/70">
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-cyan-700">{displayNo}</p>
+                        {appointment.rescheduleNote && (
+                          <p className="text-xs text-amber-600">{appointment.rescheduleNote}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">{appointment.patientName ?? patient?.name ?? `Patient #${appointment.patientId}`}</td>
+                      <td className="px-4 py-3 text-slate-700">{doctor?.name ?? `Dr. ${appointment.doctorId}`}</td>
+                      <td className="px-4 py-3 text-slate-700">{appointment.date} • {appointment.time}</td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800">
+                          {appointment.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => updateAppointment(appointment.id, { status: appointmentActionStatus.approve })} className="rounded-lg bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100">Approve</button>
+                          <button onClick={() => updateAppointment(appointment.id, { status: appointmentActionStatus.reject })} className="rounded-lg bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100">Reject</button>
+                          <button onClick={() => handleReschedule(appointment)} className="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-100">Reschedule</button>
+                          <button onClick={() => updateAppointment(appointment.id, { status: appointmentActionStatus.cancel })} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-200">Cancel</button>
+                          <button onClick={() => updateAppointment(appointment.id, { status: appointmentActionStatus.complete })} className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">Complete</button>
+                          <button onClick={() => updateAppointment(appointment.id, { status: appointmentActionStatus.noShow })} className="rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-700 transition hover:bg-orange-100">No-show</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                });
+              })()}
+            </tbody>
+          </table>
+        )}
 
-        {filteredAppointments.length === 0 && (
+        {!loading && filteredAppointments.length === 0 && (
           <p className="p-4 text-sm text-slate-500">No appointments found for this filter set.</p>
         )}
       </div>

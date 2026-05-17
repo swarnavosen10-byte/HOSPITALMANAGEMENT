@@ -60,6 +60,7 @@ export default function Login() {
       try {
         const res = await api.post<{
           success: boolean;
+          id?: number;
           username?: string;
           role?: string;
           displayName?: string;
@@ -81,6 +82,7 @@ export default function Login() {
         }
 
         const authUser = {
+          id: res.id,
           role: role as any,
           username: res.username || username,
           displayName: res.displayName || (role === "doctor" ? `Dr. ${username}` : role === "hospital_staff" ? `Staff ${username}` : "Patient User"),

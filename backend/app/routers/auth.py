@@ -87,6 +87,7 @@ def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
     
     return LoginResponse(
         success=True,
+        id=new_user.id,
         username=new_user.username,
         role=new_user.role,
         displayName=new_user.displayName,
@@ -112,6 +113,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             if verify_password(request.password, db_user.password_hash):
                 return LoginResponse(
                     success=True,
+                    id=db_user.id,
                     username=db_user.username,
                     role=db_user.role,
                     displayName=db_user.displayName,
@@ -149,6 +151,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         
         return LoginResponse(
             success=True,
+            id=999,
             username=user["username"],
             role=user["role"],
             displayName=displayName,

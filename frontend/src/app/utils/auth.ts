@@ -5,6 +5,7 @@ export type UserRole = "admin" | "patient" | "hospital_staff" | "doctor";
 export type AuthUser = {
   role: UserRole;
   username: string;
+  id?: number;
   hospitalId?: number;
   hospitalIds?: number[];
   activeHospitalId?: number;
