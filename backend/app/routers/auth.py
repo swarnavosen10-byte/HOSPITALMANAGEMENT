@@ -16,11 +16,11 @@ DEMO_USERS = {
 
 @router.post("/register", response_model=LoginResponse)
 def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
-    """Register a new user (currently focusing on patient role only)"""
-    if request.role != "patient":
+    """Register a new user (handles patient and doctor roles)"""
+    if request.role not in ["patient", "doctor"]:
         return LoginResponse(
             success=False,
-            message="Currently, only patient registration is handled by the cloud database. Other roles will be implemented soon."
+            message="Only Patient and Doctor registrations are supported by the cloud database currently."
         )
     
     # Check if username already exists in database
@@ -30,16 +30,53 @@ def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
             success=False,
             message="Username already exists"
         )
+        
+    # Check if email already exists in database
+    if request.email:
+        existing_email = db.query(User).filter(User.email.ilike(request.email)).first()
+        if existing_email:
+            return LoginResponse(
+                success=False,
+                message="Email address already registered"
+            )
     
-    # Hash password and save user
     hashed = hash_password(request.password)
+    
+    # Handle Doctor specific setup
+    doctorId = None
+    verification_status = "APPROVED" # Patients are immediately active
+    
+    if request.role == "doctor":
+        verification_status = "PENDING" # Doctors require staff review
+        
+        # Create unverified profile in doctors table
+        new_doctor_profile = Doctor(
+            name=request.displayName,
+            specialization="General Medicine",
+            hospitalId=request.hospitalId,
+            department="Unassigned",
+            experience=0,
+            availability="Unavailable",
+            fees=500,
+            phone=request.phone or "N/A",
+            email=request.email or "N/A"
+        )
+        db.add(new_doctor_profile)
+        db.commit()
+        db.refresh(new_doctor_profile)
+        doctorId = new_doctor_profile.id
+        
+    # Create the user credentials record
     new_user = User(
         username=request.username,
         password_hash=hashed,
         displayName=request.displayName,
-        role="patient",
+        role=request.role,
         email=request.email,
-        phone=request.phone
+        phone=request.phone,
+        verification_status=verification_status,
+        doctorId=doctorId,
+        hospitalId=request.hospitalId
     )
     db.add(new_user)
     db.commit()
@@ -52,15 +89,22 @@ def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
         displayName=new_user.displayName,
         email=new_user.email,
         phone=new_user.phone,
+        verification_status=new_user.verification_status,
+        doctorId=new_user.doctorId,
+        hospitalId=new_user.hospitalId,
         message="Account created successfully"
     )
 
 @router.post("/login", response_model=LoginResponse)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
-    """Validate login credentials against demo dictionary or live database (for patients)"""
-    # If it's a patient, check the database first!
-    if request.role == "patient":
-        db_user = db.query(User).filter(User.username.ilike(request.username), User.role == "patient").first()
+    """Validate login credentials against demo dictionary or live database (for patients & doctors)"""
+    # If it's a patient or doctor, check the database first!
+    if request.role in ["patient", "doctor"]:
+        db_user = db.query(User).filter(
+            User.username.ilike(request.username), 
+            User.role == request.role
+        ).first()
+        
         if db_user:
             if verify_password(request.password, db_user.password_hash):
                 return LoginResponse(
@@ -70,6 +114,9 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
                     displayName=db_user.displayName,
                     email=db_user.email,
                     phone=db_user.phone,
+                    verification_status=db_user.verification_status,
+                    doctorId=db_user.doctorId,
+                    hospitalId=db_user.hospitalId,
                     message="Login successful"
                 )
             else:
@@ -78,15 +125,24 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
                     message="Invalid password"
                 )
     
-    # Fallback to local DEMO_USERS for other roles (until they are implemented in database)
+    # Fallback to local DEMO_USERS for other roles (and demo doctor/patient logins)
     key = f"{request.username}:{request.password}"
     if key in DEMO_USERS and DEMO_USERS[key]["role"] == request.role:
         user = DEMO_USERS[key]
         
-        # Determine defaults for static demo profiles
-        displayName = "Patient User" if request.role == "patient" else f"{request.role.capitalize()} User"
+        # Default session metadata values for static local profiles
+        displayName = f"{request.role.capitalize()} User"
+        if request.role == "patient":
+            displayName = "Patient User"
+        elif request.role == "doctor":
+            displayName = "Dr. Amit Roy"
+            
         email = "patient@gmail.com" if request.role == "patient" else f"{request.username}@medisync.com"
         phone = "+91 98300 12345" if request.role == "patient" else "+91 90511 11000"
+        
+        # Default IDs
+        hospitalId = 1 if request.role in ["doctor", "staff"] else None
+        doctorId = 101 if request.role == "doctor" else None
         
         return LoginResponse(
             success=True,
@@ -95,6 +151,9 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             displayName=displayName,
             email=email,
             phone=phone,
+            verification_status="APPROVED",
+            doctorId=doctorId,
+            hospitalId=hospitalId,
             message="Login successful"
         )
     
@@ -102,6 +161,20 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         success=False,
         message="Invalid username, password, or role"
     )
+
+@router.get("/auth/status/{username}")
+def check_status(username: str, db: Session = Depends(get_db)):
+    """Check the real-time verification status of a user by username"""
+    user = db.query(User).filter(User.username.ilike(username)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "username": user.username,
+        "verification_status": user.verification_status,
+        "role": user.role,
+        "hospitalId": user.hospitalId,
+        "doctorId": user.doctorId
+    }
 
 @router.get("/admin/dashboard", response_model=AdminDashboard)
 def get_admin_dashboard(db: Session = Depends(get_db)):

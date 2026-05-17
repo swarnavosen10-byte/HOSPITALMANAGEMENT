@@ -108,6 +108,9 @@ class LoginResponse(BaseModel):
     displayName: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    verification_status: Optional[str] = None
+    doctorId: Optional[int] = None
+    hospitalId: Optional[int] = None
     message: str
 
 class UserRegisterRequest(BaseModel):
@@ -117,6 +120,8 @@ class UserRegisterRequest(BaseModel):
     displayName: str
     email: Optional[str] = None
     phone: Optional[str] = None
+    hospitalId: Optional[int] = None
+
 
 
 # ================== NOTIFICATION MODEL ==================

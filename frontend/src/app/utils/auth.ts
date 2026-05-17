@@ -12,6 +12,7 @@ export type AuthUser = {
   displayName?: string;
   email?: string;
   phone?: string;
+  verification_status?: string;
 };
 
 export type DemoCredential = {
@@ -199,6 +200,7 @@ export const validateDemoCredential = (
     displayName: match.displayName,
     email: match.email,
     phone: match.phone,
+    verification_status: "APPROVED",
   };
 };
 

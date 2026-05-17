@@ -78,6 +78,10 @@ class User(Base):
     role = Column(String, default="patient")
     email = Column(String, nullable=True)
     phone = Column(String, nullable=True)
+    verification_status = Column(String, default="APPROVED")
+    doctorId = Column("doctorId", Integer, nullable=True)
+    hospitalId = Column("hospitalId", Integer, nullable=True)
 
 Base.metadata.create_all(bind=engine)
+
 

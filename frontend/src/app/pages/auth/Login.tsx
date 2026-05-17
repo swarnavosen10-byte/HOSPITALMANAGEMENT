@@ -56,7 +56,7 @@ export default function Login() {
       return;
     }
 
-    if (role === "patient") {
+    if (role === "patient" || role === "doctor") {
       try {
         const res = await api.post<{
           success: boolean;
@@ -65,6 +65,9 @@ export default function Login() {
           displayName?: string;
           email?: string;
           phone?: string;
+          verification_status?: string;
+          doctorId?: number;
+          hospitalId?: number;
           message: string;
         }>("/login", {
           username,
@@ -78,15 +81,19 @@ export default function Login() {
         }
 
         const authUser = {
-          role: "patient" as const,
+          role: role as any,
           username: res.username || username,
-          displayName: res.displayName || "Patient User",
+          displayName: res.displayName || (role === "doctor" ? `Dr. ${username}` : "Patient User"),
           email: res.email || undefined,
           phone: res.phone || undefined,
+          verification_status: res.verification_status || "APPROVED",
+          doctorId: res.doctorId,
+          hospitalId: res.hospitalId,
+          activeHospitalId: res.hospitalId,
         };
 
         loginUser(authUser);
-        navigate(getRoleHomePath("patient"));
+        navigate(getRoleHomePath(role));
       } catch (err: any) {
         setError(err.message || "Connection error to server");
       }
@@ -120,27 +127,28 @@ export default function Login() {
       return;
     }
 
-    if (regRole === "patient") {
+    if (regRole === "patient" || regRole === "doctor") {
       try {
         const res = await api.post<{
           success: boolean;
           message: string;
         }>("/register", {
-          role: "patient",
+          role: regRole,
           username: regUsername,
           password: regPassword,
           displayName: regName,
           email: regEmail || undefined,
           phone: regPhone || undefined,
+          hospitalId: regRole === "doctor" ? regHospitalId : undefined,
         });
 
         if (!res.success) {
-          setError(res.message || "Failed to create patient account");
+          setError(res.message || "Failed to create account");
           return;
         }
 
         // Setup sign in details automatically
-        setRole("patient");
+        setRole(regRole);
         setUsername(regUsername);
         setPassword(regPassword);
         setSuccess("Account created successfully! Please sign in below.");
@@ -160,9 +168,8 @@ export default function Login() {
       return;
     }
 
-    // Fallback to local storage register for other roles
-    const hospitalId = (regRole === "hospital_staff" || regRole === "doctor") ? regHospitalId : undefined;
-    const doctorId = regRole === "doctor" ? Math.floor(100 + Math.random() * 900) : undefined; // Mock doctor ID
+    // Fallback to local storage register for other roles (admin and hospital_staff)
+    const hospitalId = regRole === "hospital_staff" ? regHospitalId : undefined;
 
     const res = registerUser(
       regRole,
@@ -170,7 +177,7 @@ export default function Login() {
       regPassword,
       regName,
       hospitalId,
-      doctorId,
+      undefined,
       regEmail || undefined,
       regPhone || undefined
     );
