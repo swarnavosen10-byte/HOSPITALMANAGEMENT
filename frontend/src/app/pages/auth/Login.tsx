@@ -1,9 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import HospitalMap from "../../components/HospitalMap";
 import { 
   LockKeyhole, 
-  Stethoscope, 
-  ShieldCheck, 
   User, 
   ArrowRight, 
   Hospital, 
@@ -12,7 +11,9 @@ import {
   Lock,
   UserPlus,
   Mail,
-  Phone
+  Phone,
+  ShieldCheck,
+  Stethoscope
 } from "lucide-react";
 import {
   getDemoCredentials,
@@ -208,16 +209,16 @@ export default function Login() {
 
 
   return (
-    <div className="page-enter relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+    <div className="page-enter relative flex flex-col items-center justify-start min-h-screen px-4 py-10 bg-slate-50 overflow-y-auto space-y-10">
       {/* Dynamic Ambient Background Glows */}
-      <div className="absolute top-1/4 left-1/4 h-[400px] w-[400px] -translate-x-1/2 rounded-full bg-cyan-200/30 blur-[120px]" />
-      <div className="absolute bottom-1/4 right-1/4 h-[450px] w-[450px] translate-x-1/2 rounded-full bg-blue-200/30 blur-[130px]" />
+      <div className="absolute top-1/4 left-1/4 h-[400px] w-[400px] -translate-x-1/2 rounded-full bg-cyan-200/30 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 h-[450px] w-[450px] translate-x-1/2 rounded-full bg-blue-200/30 blur-[130px] pointer-events-none" />
 
-      <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white/90 shadow-[0_30px_80px_-40px_rgba(2,23,54,0.3)] backdrop-blur-md lg:grid-cols-[1.05fr_1fr] soft-pop relative z-10">
+      {/* Main Login Card */}
+      <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white/90 shadow-[0_30px_80px_-40px_rgba(2,23,54,0.15)] backdrop-blur-md lg:grid-cols-[1.05fr_1fr] soft-pop relative z-10">
         
         {/* Left Side Branding Area */}
-        <section className="relative hidden p-10 lg:block overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_15%,#cffafe_0%,#ecfeff_35%,#ffffff_100%)]" />
+        <section className="relative hidden p-10 lg:block overflow-hidden bg-[radial-gradient(circle_at_10%_15%,#cffafe_0%,#ecfeff_35%,#ffffff_100%)]">
           <div className="relative z-10 flex h-full flex-col justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-700/80">Medisync Suite</p>
@@ -268,7 +269,7 @@ export default function Login() {
         </section>
 
         {/* Right Side Interactive Form Area */}
-        <section className="p-7 md:p-10 flex flex-col justify-center">
+        <section className="p-7 md:p-10 flex flex-col justify-center bg-white/90">
           
           {/* Sign In vs Create Account Toggle Headers */}
           <div className="mb-8">
@@ -512,6 +513,11 @@ export default function Login() {
             </form>
           )}
         </section>
+      </div>
+
+      {/* Map Section Below Card */}
+      <div className="w-full max-w-5xl relative z-10">
+        <HospitalMap />
       </div>
     </div>
   );

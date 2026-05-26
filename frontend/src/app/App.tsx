@@ -33,6 +33,7 @@ import HospitalDetails from "./pages/patient/HospitalDetails";
 import Departments from "./pages/patient/Departments";
 import DoctorList from "./pages/patient/DoctorList";
 import BookAppointment from "./pages/patient/BookAppointment";
+import HospitalMapPage from "./pages/patient/HospitalMapPage";
 
 
 import Layout from "./components/Layout";
@@ -106,6 +107,7 @@ function App() {
           <Route path="book/:doctorId" element={<BookAppointment />} />
           <Route path="my-appointments" element={<MyAppointments />} />
           <Route path="prescriptions" element={<PatientPrescriptions />} />
+          <Route path="hospital-map" element={<HospitalMapPage />} />
         </Route>
 
         {/* HOSPITAL STAFF ROUTES */}

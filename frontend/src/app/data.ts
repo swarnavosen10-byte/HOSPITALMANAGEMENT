@@ -24,6 +24,8 @@ export type Hospital = {
   emergencyStatus: "Active" | "Busy" | "Unavailable";
   bedInventory: BedTypeAvailability[];
   departments: DepartmentInfo[];
+  lat?: number;
+  lng?: number;
 };
 
 export type Doctor = {
@@ -76,6 +78,8 @@ export const hospitals: Hospital[] = [
       { name: "Orthopedics", doctorCount: 3, availability: "Available" },
       { name: "General Medicine", doctorCount: 6, availability: "Busy" },
     ],
+    lat: 22.5148,
+    lng: 88.3924,
   },
   {
     id: 2,
@@ -98,6 +102,8 @@ export const hospitals: Hospital[] = [
       { name: "ENT", doctorCount: 2, availability: "Available" },
       { name: "General Medicine", doctorCount: 5, availability: "Busy" },
     ],
+    lat: 22.4960,
+    lng: 88.3997,
   },
   {
     id: 3,
@@ -119,6 +125,8 @@ export const hospitals: Hospital[] = [
       { name: "Neurology", doctorCount: 2, availability: "Limited" },
       { name: "General Medicine", doctorCount: 4, availability: "Busy" },
     ],
+    lat: 22.5074,
+    lng: 88.3728,
   },
   {
     id: 4,
@@ -140,6 +148,8 @@ export const hospitals: Hospital[] = [
       { name: "Cardiology", doctorCount: 3, availability: "Limited" },
       { name: "General Medicine", doctorCount: 5, availability: "Available" },
     ],
+    lat: 22.4987,
+    lng: 88.4043,
   },
   {
     id: 5,
@@ -161,6 +171,8 @@ export const hospitals: Hospital[] = [
       { name: "Pediatrics", doctorCount: 4, availability: "Limited" },
       { name: "ENT", doctorCount: 3, availability: "Available" },
     ],
+    lat: 22.5015,
+    lng: 88.4019,
   },
   {
     id: 6,
@@ -182,6 +194,8 @@ export const hospitals: Hospital[] = [
       { name: "Neurology", doctorCount: 5, availability: "Available" },
       { name: "Orthopedics", doctorCount: 4, availability: "Limited" },
     ],
+    lat: 22.5106,
+    lng: 88.4011,
   },
 ];
 
